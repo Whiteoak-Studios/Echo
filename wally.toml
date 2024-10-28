@@ -1,11 +1,15 @@
 [package]
-name = "Whiteoak-Studios/Echo"
+name = "whiteoak-studios/echo"
 description = "A React like structured sound module, basically React for sound!"
-version = "0.0.0"
+version = "1.0.0"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
 license = "MIT"
 exclude = ["**"]
+authors = [
+    "Michael Sumner <mike@whiteoak.studio>"
+]
+
 include = [
     "src",
     "src/init.lua",
