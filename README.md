@@ -30,6 +30,7 @@
     Echo:root(workspace, Echo.createElement(Arctic)) -- Parents into workspace
     Echo:root(Echo.createElement(Arctic)) -- Parents into a new folder
     Echo:root(nil, Echo.createElement(Arctic)) -- Parents into a new folder because parent is nil
+    Echo:root("Combat", Echo.createElement(Arctic)) -- Parents into a new folder with the name "Combat"
     ```
 --]]
 
@@ -166,6 +167,48 @@ Echo.createBinding(Echo.Binds.Area, function() -- Type of bind (Area only as of 
             end)
         end
     }
+end)
+```
+
+### CreateSignal
+
+```lua
+--[[
+    You can create custom signals to communicate between different  components,
+    by providing the name of the signal, along with a callback. You can create
+    multiple signals using the same name, and they will all be called when a signal
+    of a matching name is fired.
+    
+    @Param string: name - The name of the signal
+    @Param function: callback - The callback function that will be called when the signal is triggered
+--]]
+
+Echo.createSignal("Play Reward", function(state: boolean)by
+    setPlaying(state)
+
+    return function ()
+        -- You must manually perform your cleanup actions here
+        -- Cleanup, will also break the subscription
+    end
+end)
+```
+
+### UseSignal
+
+```lua
+--[[
+    Fire a signal that has been created, using the same name of the
+    signal created. If the signal does not exists, it will throw an
+    error.
+
+    @Param string: name - The name of the signal(s) to fire
+    @Param variadic: any - Any arguments to pass to the callback(s)
+--]]
+
+Echo.useSignal("Play Reward", true)
+
+Echo.useSignal("Play Reward", function()
+    -- Can even send custom callbacks if needed
 end)
 ```
 

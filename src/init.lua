@@ -7,6 +7,11 @@
 --]]
 
 --!strict
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local Packages = ReplicatedStorage.Packages
+
+local Promise = require(Packages.Promise)
+
 local Binds: Folder = script.Modules.Binds
 
 local Signal: {connect: () -> ()} = require(script.Modules.Classes.Signal)
@@ -35,7 +40,9 @@ export type Elements = {Sound}
 export type Element = {string: Property}
 
 local Module = {
-    _created = {}, -- Stores all of the created enviroments
+    _loaded = {},
+    _signals = {},
+
     Fragment = true,
 
     Binds = {
@@ -199,17 +206,80 @@ function Module.useSpring(func: () -> Spring) : {[string]: () -> ()} & {() -> an
 end
 
 --[[
+    Create a signal which can be fired within any script
+--]]
+function Module.createSignal(name: string, callback: () -> ())
+    Promise.new(function() -- Incase callback yields
+        local subscribe: () -> (), fire: () -> () = Signal()
+        local disconnect: () -> ()
+
+        disconnect = subscribe(function(...: any)
+            local func: () -> ()? = callback(...)
+            if func then
+                disconnect()
+                func() -- Run cleanup for any possible other connections
+            end
+        end)
+
+        if not Module._signals[name] then
+            Module._signals[name] = {}
+        end
+
+        table.insert(Module._signals[name], fire)
+        Module._loaded[name] = true -- Inform that signal has been created!
+    end)
+end
+
+--[[
+    Fires a signal that was created, but waits until the
+    package and all elements have been completly loaded to
+    ensure that all signals fired at listened to
+--]]
+function Module.useSignal(name: string, ...: any)
+    local args: {any} = {...}
+
+    Promise.new(function(resolve, reject)
+        local started: number = os.clock()
+        local timeout: number = 10 -- Before timing out (possibly from an error)
+
+        -- Ensure the sound element has been loaded properly
+        if not Module._loaded[name] then
+            repeat
+                task.wait()
+                print "waiting!"
+                if os.clock() - started >= timeout then
+                    reject("`useSignal` has timed out, this is likely due to an error in the signal or a dependency")
+                end
+            until Module._loaded[name]
+        end
+
+        -- Fire all signals to subscribed connections
+        if Module._signals[name] then
+            for _, fire: () -> () in Module._signals[name] do
+                fire(table.unpack(args))
+            end
+            resolve()
+        end
+    end):catch(function(err: string?)
+        warn(tostring(err))
+    end)
+end
+
+--[[
     Creates a new structure for a new sound, acts the same as
     `React:root`. Creates a new folder structure to store
     sound elements within
 --]]
-function Module:root(parent: any | table, elements: Elements | nil)
+function Module:root(parent: any | Elements | string, elements: Elements | nil)
     local mainFolder: Folder = parent
     local elements: Elements = elements
 
     if typeof(parent) == "table" then
         mainFolder = Module:_createStructure() -- If first time starting package
         elements = parent
+    elseif typeof(parent) == "string" then
+        mainFolder = Module:_createStructure(parent)
+        mainFolder.Name = parent
     elseif not parent then
         mainFolder = Module:_createStructure() -- Incase parent is nil
     end
