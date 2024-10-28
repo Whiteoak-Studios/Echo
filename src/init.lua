@@ -246,7 +246,6 @@ function Module.useSignal(name: string, ...: any)
         if not Module._loaded[name] then
             repeat
                 task.wait()
-                print "waiting!"
                 if os.clock() - started >= timeout then
                     reject("`useSignal` has timed out, this is likely due to an error in the signal or a dependency")
                 end
