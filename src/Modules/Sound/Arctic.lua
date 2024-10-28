@@ -95,7 +95,7 @@
     end)
     ```
 
-    -- Whiteoak TODO Setup official documentation
+    Official Documentation: https://github.com/Whiteoak-Studios/Echo/blob/main/README.md
 --]]
 
 local Echo = require(script.Parent.Parent.Parent)
