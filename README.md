@@ -112,6 +112,7 @@ api:start({
     --]]
 })
 
+-- Make sure to return the created element if it's within a function!!
 return Echo.createElement("Sound", {
     SoundId = "rbxassetid://17612500198",
     Looped = true,
@@ -166,4 +167,89 @@ Echo.createBinding(Echo.Binds.Area, function() -- Type of bind (Area only as of 
         end
     }
 end)
+```
+
+# Script Examples:
+
+### Basic
+
+```lua
+local Echo = require(Path.To.Echo)
+
+return function ()
+    -- Make sure to always return the created element, even though the function is returned!
+    return Echo.createElement("Sound", {
+        SoundId = "rbxassetid://873617644",
+        Volume = .25,
+        Looped = true,
+        Name = "Reward"
+    }, {
+        -- Child of
+        Distortion = Echo.createElement("DistortionSoundEffect", {
+            Level = 0.25
+        })
+    })
+end
+```
+
+### Complex
+
+```lua
+local Echo = require(Path.To.Echo)
+
+return function ()
+    local timePosition, setTimePosition = Echo.useState(0)
+    local playing, setPlaying = Echo.useState(true)
+
+    local styles, api = Echo.useSpring(function()
+        return {
+            volume = 0,
+            rollOfDistance = 10,
+
+            config = {
+                duration = 5,
+            }
+        }
+    end)
+
+    Echo.createBinding(Echo.Binds.Area, function()
+        return {
+            cframe = CFrame.new(0, 0, 0),
+            size = Vector3.new(15, 15, 15),
+
+            enter = function(player: Player)
+                setPlaying(true)
+                return api:start({
+                    volume = .25,
+                    rollOfDistance = 100000,
+                })
+            end,
+            
+            leave = function(player: Player)
+                return api:start({
+                    volume = 0,
+                    rollOfDistance = 10
+                }):
+                andThen(function()
+                    setPlaying(false)
+                    setTimePosition(0)
+                end)
+            end
+        }
+    end)
+
+    return Echo.createElement("Sound", {
+        SoundId = "rbxassetid://17612500198",
+        Looped = true,
+        Name = "Arctic",
+        Volume = styles.volume,
+        RollOffMaxDistance = styles.rollOfDistance,
+        Playing = playing,
+        TimePosition = timePosition
+    }, {
+        Distortion = Echo.createElement("DistortionSoundEffect", {
+            Level = styles.volume
+        })
+    })
+end
 ```
