@@ -1,0 +1,29 @@
+{
+    "name": "Echo",
+    "tree": {
+      "$className": "DataModel",
+  
+      "ReplicatedStorage": {
+        "$className": "ReplicatedStorage",
+  
+        "Packages": {
+          "$path": "Packages"
+        },
+
+        "DevPackages": {
+            "$path": "DevPackages"
+          }
+      },
+
+      "ServerScriptService": {
+        "$className": "ServerScriptService",
+        "Server": {
+          "$path": "ServerScriptService"
+        },
+
+        "Module": {
+          "$path": "src"
+        }
+      }  
+    }
+  }
