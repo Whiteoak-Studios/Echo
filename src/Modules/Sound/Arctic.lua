@@ -111,6 +111,7 @@ return function ()
 
             config = {
                 duration = 5,
+                delay = 2,
             }
         }
     end)
@@ -146,7 +147,7 @@ return function ()
 
     -- Fire the signal which is connected to a sound element, that sound element is `Reward`
     -- Pass any arguments you may need
-    Echo.useSignal("Play Reward", true)
+    -- Echo.useSignal("Play Reward", true)
 
     return Echo.createElement("Sound", {
         SoundId = "rbxassetid://17612500198",
@@ -154,7 +155,7 @@ return function ()
         Name = "Arctic",
         Volume = styles.volume,
         RollOffMaxDistance = styles.rollOfDistance,
-        -- Playing = playing,
+        Playing = playing,
         TimePosition = timePosition
     }, {
         Distortion = Echo.createElement("DistortionSoundEffect", {

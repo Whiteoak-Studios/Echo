@@ -6,7 +6,7 @@ return function ()
 
     describe("root", function()
         it("create a new root that can store and handle sound elements within (React for sound)", function()
-            Echo:root(nil, Echo.createElement(Echo.Fragment, {
+            Echo:root(workspace, Echo.createElement(Echo.Fragment, {
                 Reward,
                 Arctic,
                 Spin

@@ -283,6 +283,8 @@ function Module:root(parent: any | Elements | string, elements: Elements | nil)
         mainFolder = Module:_createStructure() -- Incase parent is nil
     end
 
+    print(mainFolder, "parent")
+
     for _, element: Element in elements do
         for _, sound: Sound in element do
             sound.Parent = mainFolder

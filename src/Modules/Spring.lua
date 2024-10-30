@@ -52,12 +52,12 @@ function Module:start(newValues: NewValues) : typeof(Promise)
     local duration: number? = config.duration or 0
     local delay: number? = config.delay or 0
 
-    local timeStarted: number = tick()
-
     return Promise.new(function(resolve)
         task.wait(delay)
 
         local initialCurrentValues: {[string]: number} = {}
+        local timeStarted: number = tick()
+        
         for name: string, property: Property in self.properties do
             initialCurrentValues[name] = property.currentValue
         end
