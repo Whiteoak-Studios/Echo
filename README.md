@@ -25,12 +25,13 @@
     Note: If no parent is not provided, a new folder will also be created - will
     not error. Example:
 
-    ```lua
+    ```
     -- Works the exact same way with fragments
     Echo:root(workspace, Echo.createElement(Arctic)) -- Parents into workspace
     Echo:root(Echo.createElement(Arctic)) -- Parents into a new folder
     Echo:root(nil, Echo.createElement(Arctic)) -- Parents into a new folder because parent is nil
-    Echo:root("Combat", Echo.createElement(Arctic)) -- Parents into a new folder with the name "Combat"
+    Echo:root("Combat", Echo.createElement(Block)) -- Parents into a new folder with the name "Combat"
+    Echo:root("Combat", Echo.createElement(Punch)) -- Parents new sound into existing folder "Combat"
     ```
 --]]
 
@@ -87,6 +88,14 @@ Distortion = Echo.createElement("DistortionSoundEffect", {
 ### UseSpring
 
 ```lua
+--[[
+    Springs are a great way to gradually change a numerical value 
+    over time. This is useful for animations, and other gradual changes.
+    You can canel a spring by caneling the promise returned by `api:Start()`
+
+    @Param function: callback - the function ran when creating the spring, must return table
+--]]
+
 -- Styles (table) is the value that is changed, api (returned module script) is the function that changes it
 local styles: {}, api: {() -> ()} = Echo.useSpring(function()
     return {
@@ -201,7 +210,7 @@ end)
     signal created. If the signal does not exists, it will throw an
     error.
 
-    @Param string: name - The name of the signal(s) to fire
+    @Param string | table: name | Signal - The name of the signal(s) to fire
     @Param variadic: any - Any arguments to pass to the callback(s)
 --]]
 
@@ -210,6 +219,62 @@ Echo.useSignal("Play Reward", true)
 Echo.useSignal("Play Reward", function()
     -- Can even send custom callbacks if needed
 end)
+
+-- You can also call signals directly from the table instead:
+Echo.useSignal(Echo.Signals["Play Reward"], true)
+Echo.useSignal(Echo.Signals.Punch, true)
+```
+
+### Events
+
+```lua
+--[[
+    Evetns are bindings that are triggered whenver an event - tied to the
+    physical sound instance, is triggered. This is very helpful for detecting
+    when a sound has finished playing, or when a sound has been played.
+
+    Note: These need to be stored within the creation of the sound element:
+
+    ```
+    return Echo.createElement("Sound", {
+        SoundId = "rbxassetid://873617644",
+        Volume = .25,
+        Name = "Reward",
+        Playing = playing,
+
+        [Echo.Event.Ended] = function() -- Does not fire if `Looped` is enabled
+            print "Sound ended"
+
+            return function () -- Cleanup and disconnect connection
+                
+            end
+        end
+    })
+    ```
+--]]
+
+[Echo.Event.Playing] = function(state: boolean)
+    -- State determines whether the sound is playing or not
+end
+
+[Echo.Event.Looped] = function(soundId: string, count: number)
+    -- SoundId is the id of the sound that has looped, and count is the number
+    -- Of times looped
+end
+
+[Echo.Event.Loaded] = function()
+    -- Fires once sound has loaded, may not fire if sound is already loaded
+    -- Before the connection is made
+
+    return function()
+        -- Important: Also return a cleanup function for one time events like this
+    end
+end
+
+[Echo.Event.Ended] = function()
+    -- Fires when sound ends
+end
+
 ```
 
 # Script Examples:

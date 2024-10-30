@@ -1,7 +1,7 @@
 [package]
 name = "fadeluc-123/echo"
 description = "A React like structured sound module, basically React for sound! Visit Whiteoak Studios for documentation: https://github.com/Whiteoak-Studios/Echo"
-version = "3.3.1"
+version = "4.3.1"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
 license = "MIT"
@@ -16,16 +16,25 @@ include = [
     "default.project.json",
     "wally.toml",
     "src/Modules",
+
     "src/Modules/Binds",
     "src/Modules/Binds/Area.lua",
+
     "src/Modules/Classes",
     "src/Modules/Classes/Signal.lua",
     "src/Modules/Spring.lua",
+
     "src/Modules/ZoneTracker",
     "src/Modules/ZoneTracker/AreaV2.lua",
     "src/Modules/ZoneTracker/AreaV7.lua",
     "src/Modules/ZoneTracker/init.lua",
-    "src/Modules/ZoneTracker/ObjectTracker.lua"
+    "src/Modules/ZoneTracker/ObjectTracker.lua",
+
+    "src/Modules/Events"
+    "src/Modules/Events/Ended.lua",
+    "src/Modules/Events/Loaded.lua"
+    "src/Modules/Events/Looped.lua"
+    "src/Modules/Events/Playing.lua"
 ]
 
 [dependencies]

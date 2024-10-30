@@ -62,7 +62,7 @@
     and stop playing it when the player leaves.
 
     ```lua
-    Echo.createBinding(Echo.Binds.Area, function() -- Type of bind (Area only as of right now)
+    Echo.createBinding(Echo.Bind.Area, function() -- Type of bind (Area only as of right now)
         return {
             cframe = CFrame.new(0, 0, 0), -- Position of the area
             size = Vector3.new(15, 15, 15), -- Range / size of the area
@@ -118,7 +118,7 @@ return function ()
 
     -- Create a binding that will play the sound once the player enters a area
     -- And stops playing as they leave that area
-    Echo.createBinding(Echo.Binds.Area, function()
+    Echo.createBinding(Echo.Bind.Area, function()
         return {
             cframe = CFrame.new(0, 0, 0),
             size = Vector3.new(15, 15, 15),
@@ -147,7 +147,7 @@ return function ()
 
     -- Fire the signal which is connected to a sound element, that sound element is `Reward`
     -- Pass any arguments you may need
-    -- Echo.useSignal("Play Reward", true)
+    Echo.useSignal(Echo.Signals.PlayReward, true)
 
     return Echo.createElement("Sound", {
         SoundId = "rbxassetid://17612500198",
@@ -156,7 +156,15 @@ return function ()
         Volume = styles.volume,
         RollOffMaxDistance = styles.rollOfDistance,
         Playing = playing,
-        TimePosition = timePosition
+        TimePosition = timePosition,
+
+        [Echo.Event.Loaded] = function() -- Does not fire if `Looped` is enabled
+            print "Sound Loaded"
+
+            return function () -- Cleanup and disconnect connection
+                -- Always provide a cleanup for one time events like this!
+            end
+        end
     }, {
         Distortion = Echo.createElement("DistortionSoundEffect", {
             Level = styles.volume -- Even works on children components!

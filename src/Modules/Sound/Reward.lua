@@ -5,9 +5,8 @@ return function ()
 
     -- `Reward` as name since that's the sound we want to make changes to, which is this sound element
     -- You can create multiple signals using the same name, and they will all be updated with just 1 call
-    Echo.createSignal("Play Reward", function(state: boolean)
+    Echo.createSignal("PlayReward", function(state: boolean)
         setPlaying(state)
-
         return function ()
             -- You must manually perform your cleanup actions here
             -- Cleanup, will also break the subscription
@@ -17,9 +16,17 @@ return function ()
     return Echo.createElement("Sound", {
         SoundId = "rbxassetid://873617644",
         Volume = .25,
-        Looped = true,
+        -- Looped = true,
         Name = "Reward",
-        Playing = playing
+        Playing = playing,
+
+        [Echo.Event.Ended] = function() -- Does not fire if `Looped` is enabled
+            print "Sound ended"
+
+            return function () -- Cleanup and disconnect connection
+                
+            end
+        end
     }, {
         Distortion = Echo.createElement("DistortionSoundEffect", {
             Level = 0.25

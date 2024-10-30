@@ -13,6 +13,7 @@ local Packages = ReplicatedStorage.Packages
 local Promise = require(Packages.Promise)
 
 local Binds: Folder = script.Modules.Binds
+local Events: Folder = script.Modules.Events
 
 local Signal: {connect: () -> ()} = require(script.Modules.Classes.Signal)
 local SpringModule: () -> () = require(script.Modules.Spring)
@@ -40,15 +41,80 @@ export type Elements = {Sound}
 export type Element = {string: Property}
 
 local Module = {
-    _loaded = {},
-    _signals = {},
+    _folders = {},
+
+    _registered = false,
+    _registeredTotal = 0, -- Total registered element functions
+    _registeredCount = 0, -- Current value of registered elements
 
     Fragment = true,
-
-    Binds = {
+    Bind = {
         Area = require(Binds.Area)
-    }
+    },
+    
+    Event = {
+        Looped = require(Events.Looped),
+        Ended = require(Events.Ended),
+        Loaded = require(Events.Loaded),
+        Playing = require(Events.Playing)
+    },
+
+    Signals = {} -- Stores all signals
 }
+
+--[[
+    Register / start the package once the game has loaded,
+    in a similar fashion to how Knit does it.
+--]]
+function Module:register(folder: Folder?)
+    if Module._registered then
+        return
+    end
+
+    for _, element: ModuleScript in folder:GetDescendants() do
+        if element:IsA("ModuleScript") then
+            Module._registeredTotal += 1
+        end
+    end
+end
+
+--[[
+    Creates a new structure for a new sound, acts the same as
+    `React:root`. Creates a new folder structure to store
+    sound elements within
+--]]
+function Module:root(parent: any | Elements | string, elements: Elements | nil)
+    local mainFolder: Folder = parent
+    local elements: Elements = elements
+
+    if typeof(parent) == "table" then
+        mainFolder = Module:_createStructure() -- If first time starting package
+        elements = parent
+    elseif typeof(parent) == "string" then
+        -- Grant ability to add into the same folder
+        if Module._folders[parent] then
+            mainFolder = Module._folders[parent]
+        else
+            mainFolder = Module:_createStructure(parent)
+            mainFolder.Name = parent
+
+            Module._folders[parent] = mainFolder
+        end
+    elseif not parent then
+        mainFolder = Module:_createStructure() -- Incase parent is nil
+    end
+
+    for _, element: Element in elements do
+        for _, sound: Sound in element do
+            sound.Parent = mainFolder
+
+            Module._registeredCount += 1
+            if Module._registeredCount >= Module._registeredTotal then
+                Module._registered = true -- All elements accounted for!
+            end
+        end
+    end
+end
 
 --[[
     Creates and returns a physical sound element, based
@@ -68,47 +134,12 @@ function Module.createElement(
         }
     end
 
-    -- Listen for when a state is changed, thus changing the property of the sound
-    local function listenForStateChange(sound: Sound, property: string, value: {})
-        local subscribe: () -> () = value.subscribe
-        local connected: () -> () = value.connected
-
-        -- Listen for property changes
-        local disconnect: () -> ()
-        disconnect = subscribe(function(newState: any)
-            if sound:GetAttribute(property) then
-                if
-                    typeof(sound:GetAttribute(property)) ~= typeof(newState)
-                then
-                    warn(`Bind has been disconnected, new value {newState} is not the same type as the previous one!`)
-                    return disconnect() -- Disconnect Signal
-                end
-            end
-        
-            sound[property] = newState
-            sound:SetAttribute(property, newState) -- Assign previous state tied to the property changed
-        end)
-
-        -- Setup connection to listen for when the sound is removed, thus disconnecting all binds
-        local cleanup: RBXScriptConnection
-        cleanup = sound.AncestryChanged:Connect(function(_, parent)
-            if not parent then
-                if cleanup then
-                    cleanup:Disconnect()
-                end
-
-                disconnect()
-            end
-        end)
-
-        -- Let orignal bind know we've successfully connected our bind, disconnect that initial bind
-        connected(true)
-    end
-
     local sound: Sound = Instance.new(type)
     for property: string, value: any | table in properties do
         if typeof(value) == "table" then -- From signal / useState
-            listenForStateChange(sound, property, value)
+            Module._listenForStateChange(sound, property, value)
+        elseif typeof(value) == "function" then
+            Module._listenForEventChange(sound, property, value)
         else
             sound[property] = value
         end
@@ -218,15 +249,22 @@ function Module.createSignal(name: string, callback: () -> ())
             if func then
                 disconnect()
                 func() -- Run cleanup for any possible other connections
+
+                -- Remove the signal completely
+                for _, callbackFire: () -> () in Module.Signals[name] do
+                    if callbackFire == fire then
+                        table.remove(Module.Signals[name],
+                            table.find(Module.Signals[name], callbackFire))
+                    end
+                end
             end
         end)
 
-        if not Module._signals[name] then
-            Module._signals[name] = {}
+        if not Module.Signals[name] then
+            Module.Signals[name] = {}
         end
 
-        table.insert(Module._signals[name], fire)
-        Module._loaded[name] = true -- Inform that signal has been created!
+        table.insert(Module.Signals[name], fire)
     end)
 end
 
@@ -235,26 +273,50 @@ end
     package and all elements have been completly loaded to
     ensure that all signals fired at listened to
 --]]
-function Module.useSignal(name: string, ...: any)
+function Module.useSignal(signal: {[string]: () -> ()} | string, ...: any)
     local args: {any} = {...}
 
     Promise.new(function(resolve, reject)
         local started: number = os.clock()
         local timeout: number = 10 -- Before timing out (possibly from an error)
 
-        -- Ensure the sound element has been loaded properly
-        if not Module._loaded[name] then
+        if not Module._registered then
             repeat
                 task.wait()
                 if os.clock() - started >= timeout then
-                    reject("`useSignal` has timed out, this is likely due to an error in the signal or a dependency")
+                    reject(`{"`useSignal`"} has timed out, due to Echo not being registered {
+                    "properly, please ensure all sound elements return a table"}`)
                 end
-            until Module._loaded[name]
+            until Module._registered
+        end
+
+        if typeof(signal) == "string" then
+            started = os.clock()
+
+            -- Ensure the sound element has been loaded properly
+            if not Module.Signals[signal] then
+                repeat
+                    task.wait()
+                    if os.clock() - started >= timeout then
+                        reject(`{"`useSignal`"} has timed out, this is likely due {
+                        "to an error in the signal or a dependency"}`)
+                    end
+                until Module.Signals[signal]
+            else
+                signal = Module.Signals[signal]
+            end
+        end
+
+        -- Get the most up to date signal, as `signal` might be outdated from calling before registration!
+        for _, newSignal: {[string]: () -> ()}  in Module.Signals do
+            if newSignal.name == signal.name then
+                signal = table.clone(newSignal) -- Clone because changes are made to original for cleanup!
+            end
         end
 
         -- Fire all signals to subscribed connections
-        if Module._signals[name] then
-            for _, fire: () -> () in Module._signals[name] do
+        if signal then
+            for _, fire: () -> () in signal do
                 fire(table.unpack(args))
             end
             resolve()
@@ -265,31 +327,11 @@ function Module.useSignal(name: string, ...: any)
 end
 
 --[[
-    Creates a new structure for a new sound, acts the same as
-    `React:root`. Creates a new folder structure to store
-    sound elements within
+    Completely removes all connections tied to the signal, breaking
+    all connections
 --]]
-function Module:root(parent: any | Elements | string, elements: Elements | nil)
-    local mainFolder: Folder = parent
-    local elements: Elements = elements
-
-    if typeof(parent) == "table" then
-        mainFolder = Module:_createStructure() -- If first time starting package
-        elements = parent
-    elseif typeof(parent) == "string" then
-        mainFolder = Module:_createStructure(parent)
-        mainFolder.Name = parent
-    elseif not parent then
-        mainFolder = Module:_createStructure() -- Incase parent is nil
-    end
-
-    print(mainFolder, "parent")
-
-    for _, element: Element in elements do
-        for _, sound: Sound in element do
-            sound.Parent = mainFolder
-        end
-    end
+function Module.removeSignal(name: string)
+    Module.Signals[name] = {}
 end
 
 --[[
@@ -321,6 +363,62 @@ function Module._createFragment(properties: {}) : {Element}
         table.insert(sounds, method())
     end
     return sounds
+end
+
+--[[
+    Subscribe to a callback function for whenever a property
+    or `useState` is fired, updating the sound instance's
+    properties accordingly
+--]]
+function Module._listenForStateChange(sound: Sound, property: string, value: {})
+    local subscribe: () -> () = value.subscribe
+    local connected: () -> () = value.connected
+
+    -- Listen for property changes
+    local disconnect: () -> ()
+    disconnect = subscribe(function(newState: any)
+        if sound:GetAttribute(property) then
+            if
+                typeof(sound:GetAttribute(property)) ~= typeof(newState)
+            then
+                warn(`Bind has been disconnected, new value {newState} is not the same type as the previous one!`)
+                return disconnect() -- Disconnect Signal
+            end
+        end
+    
+        sound[property] = newState
+        sound:SetAttribute(property, newState) -- Assign previous state tied to the property changed
+    end)
+
+    -- Setup connection to listen for when the sound is removed, thus disconnecting all binds
+    local cleanup: RBXScriptConnection
+    cleanup = sound.AncestryChanged:Connect(function(_, parent)
+        if not parent then
+            if cleanup then
+                cleanup:Disconnect()
+            end
+
+            disconnect()
+        end
+    end)
+
+    -- Let orignal bind know we've successfully connected our bind, disconnect that initial bind
+    connected(true)
+end
+
+--[[
+    Subscribe to a callback function for whenever an event
+    is triggered from the sound instance
+--]]
+function Module._listenForEventChange(sound: Sound, event: () -> (), callback: () -> ())
+    local disconnect: () -> ()
+    disconnect = event(sound, function(...: any)
+        local cleanup: () -> ()? = callback(...)
+        if cleanup then
+            cleanup()
+            disconnect()
+        end
+    end)
 end
 
 return Module
