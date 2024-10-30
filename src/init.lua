@@ -251,7 +251,11 @@ function Module.createSignal(name: string, callback: () -> ())
                 func() -- Run cleanup for any possible other connections
 
                 -- Remove the signal completely
-                for _, callbackFire: () -> () in Module.Signals[name] do
+                for _, callbackFire: () -> () | string in Module.Signals[name] do
+                    if typeof(callback) == "string" then
+                        continue
+                    end
+
                     if callbackFire == fire then
                         table.remove(Module.Signals[name],
                             table.find(Module.Signals[name], callbackFire))
@@ -261,7 +265,9 @@ function Module.createSignal(name: string, callback: () -> ())
         end)
 
         if not Module.Signals[name] then
-            Module.Signals[name] = {}
+            Module.Signals[name] = {
+                name = name
+            }
         end
 
         table.insert(Module.Signals[name], fire)
@@ -302,6 +308,8 @@ function Module.useSignal(signal: {[string]: () -> ()} | string, ...: any)
                         "to an error in the signal or a dependency"}`)
                     end
                 until Module.Signals[signal]
+
+                signal = Module.Signals[signal]
             else
                 signal = Module.Signals[signal]
             end
@@ -316,7 +324,10 @@ function Module.useSignal(signal: {[string]: () -> ()} | string, ...: any)
 
         -- Fire all signals to subscribed connections
         if signal then
-            for _, fire: () -> () in signal do
+            for _, fire: () -> () | string in signal do
+                if typeof(fire) == "string" then
+                    continue
+                end
                 fire(table.unpack(args))
             end
             resolve()
