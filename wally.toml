@@ -30,10 +30,10 @@ include = [
     "src/Modules/ZoneTracker/init.lua",
     "src/Modules/ZoneTracker/ObjectTracker.lua",
 
-    "src/Modules/Events"
+    "src/Modules/Events",
     "src/Modules/Events/Ended.lua",
-    "src/Modules/Events/Loaded.lua"
-    "src/Modules/Events/Looped.lua"
+    "src/Modules/Events/Loaded.lua",
+    "src/Modules/Events/Looped.lua",
     "src/Modules/Events/Playing.lua"
 ]
 
