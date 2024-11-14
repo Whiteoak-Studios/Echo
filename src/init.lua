@@ -115,7 +115,6 @@ function Module:root(parent: any | Elements | string, elements: Elements | nil)
             Module._registeredCount += 1
             if Module._registeredCount >= Module._registeredTotal then
                 Module._registered = true -- All elements accounted for!
-                print "accounted for!"
             end
         end
     end
@@ -294,9 +293,7 @@ function Module.useSignal(signal: {[string]: () -> ()} | string, ...: any)
     Promise.new(function(resolve, reject)
         local started: number = os.clock()
         local timeout: number = 10 -- Before timing out (possibly from an error)
-
-        print(Module._registered, "Module._registered")
-
+        
         if not Module._registered then
             repeat
                 task.wait()
