@@ -13,6 +13,8 @@ return function ()
         end
     end)
 
+    Echo.useSignal("Footstep [Concrete]", workspace.Test, "2")
+
     return Echo.createElement("Sound", {
         SoundId = "rbxassetid://873617644",
         Volume = .25,

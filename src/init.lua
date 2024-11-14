@@ -59,6 +59,10 @@ local Module = {
         Playing = require(Events.Playing)
     },
 
+    Util = {
+        Cache = script.Modules.Classes.Cache,
+    },
+    
     Signals = {} -- Stores all signals
 }
 
@@ -103,7 +107,7 @@ function Module:root(parent: any | Elements | string, elements: Elements | nil)
     elseif not parent then
         mainFolder = Module:_createStructure() -- Incase parent is nil
     end
-
+    
     for _, element: Element in elements do
         for _, sound: Sound in element do
             sound.Parent = mainFolder
@@ -111,6 +115,7 @@ function Module:root(parent: any | Elements | string, elements: Elements | nil)
             Module._registeredCount += 1
             if Module._registeredCount >= Module._registeredTotal then
                 Module._registered = true -- All elements accounted for!
+                print "accounted for!"
             end
         end
     end
@@ -135,9 +140,13 @@ function Module.createElement(
     end
 
     local sound: Sound = Instance.new(type)
-    for property: string, value: any | table in properties do
+    for property: string | Instance, value: any | table | () -> () in properties do
         if typeof(value) == "table" then -- From signal / useState
             Module._listenForStateChange(sound, property, value)
+        elseif typeof(property) == "Instance" then -- For sound caching!
+            if property:IsA("ModuleScript") then
+                Module._createCache(sound, require(property), value)
+            end
         elseif typeof(value) == "function" then
             Module._listenForEventChange(sound, property, value)
         else
@@ -286,6 +295,8 @@ function Module.useSignal(signal: {[string]: () -> ()} | string, ...: any)
         local started: number = os.clock()
         local timeout: number = 10 -- Before timing out (possibly from an error)
 
+        print(Module._registered, "Module._registered")
+
         if not Module._registered then
             repeat
                 task.wait()
@@ -343,6 +354,15 @@ end
 --]]
 function Module.removeSignal(name: string)
     Module.Signals[name] = {}
+end
+
+--[[
+    Creates a cache of sounds to be used
+--]]
+function Module._createCache(sound: Sound, cache: () -> {() -> ()}, callback: () -> {string: any})
+    local config: {[string]: any} = callback()
+    config.defaultParent = "Test"
+    cache(sound, config)
 end
 
 --[[
