@@ -8,14 +8,16 @@ return function ()
     describe("root", function()
         it("create a new root that can store and handle sound elements within (React for sound)", function()
             Echo:register(script.Parent.Modules.Sound) -- Just like Knit Start!
-            Echo:root("Footsteps", Echo.createElement(Echo.Fragment, {
-                Reward,
-                Arctic,
-                Spin,
-                Footstep
-            }))
+            -- Echo:root("Footsteps", Echo.createElement(Echo.Fragment, {
+            --     Reward,
+            --     Arctic,
+            --     Spin,
+            --     Footstep
+            -- }))
 
-            -- Echo:root(workspace, Echo.createElement(Arctic))
+            Echo:root(workspace, Echo.createElement(Arctic, {
+                name = "Arctic"
+            }))
         end)
     end)
 end

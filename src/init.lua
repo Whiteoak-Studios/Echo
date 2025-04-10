@@ -26,6 +26,9 @@ type CreationInfo = {
 
 type Fragment = boolean
 type Property = string | number | boolean
+type Props = {
+    [string]: any
+}
 
 type Area = {
     enter: () -> (),
@@ -126,7 +129,7 @@ end
 --]]
 function Module.createElement(
     type: string | Fragment | () -> Element,
-    properties: Element,
+    properties: Element | Props,
     children: Element?
 ) : {[number]: Sound} | {[number]: Element}
 
@@ -134,7 +137,7 @@ function Module.createElement(
         return Module._createFragment(properties)
     elseif typeof(type) == "function" then
         return {
-            [1] = type()
+            [1] = type(properties)
         }
     end
 
