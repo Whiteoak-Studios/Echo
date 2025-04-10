@@ -1,32 +1,6 @@
 {
   "name": "echo",
   "tree": {
-    "$className": "DataModel",
-
-    "ReplicatedStorage": {
-      "$className": "ReplicatedStorage",
-
-      "Packages": {
-        "$path": "Packages"
-      }
-    },
-
-    "ServerScriptService": {
-      "Module": {
-        "$path": "src"
-      },
-      
-      "Tests": {
-        "$path": "ServerScriptService"
-      }
-    },
-
-    "StarterPlayer": {
-      "$className": "StarterPlayer",
-
-      "StarterPlayerScripts": {
-        "$className": "StarterPlayerScripts"
-      }
-    }
+    "$path": "src"
   }
 }

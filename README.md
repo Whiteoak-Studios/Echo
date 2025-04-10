@@ -45,6 +45,20 @@ Echo:root(workspace, Echo.createElement(Echo.Fragment, {
 Echo:root(workspace, Echo.createElement(Arctic))
 ```
 
+### Properties
+```lua
+--[[
+    You may pass any additional properties through elements,
+    by passing them through the designated property table. This
+    will not work with Fragments, only through individual elements.
+--]]
+
+Echo:root(workspace, Echo.createElement(Arctic, {
+    -- Additional properties
+    property1 = "value1",
+}))
+```
+
 ### Fragement
 
 ```lua
