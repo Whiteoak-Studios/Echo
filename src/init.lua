@@ -46,10 +46,6 @@ export type Element = {string: Property}
 local Module = {
     _folders = {},
 
-    _registered = false,
-    _registeredTotal = 0, -- Total registered element functions
-    _registeredCount = 0, -- Current value of registered elements
-
     Fragment = true,
     Bind = {
         Area = require(Binds.Area)
@@ -68,22 +64,6 @@ local Module = {
     
     Signals = {} -- Stores all signals
 }
-
---[[
-    Register / start the package once the game has loaded,
-    in a similar fashion to how Knit does it.
---]]
-function Module:register(folder: Folder?)
-    if Module._registered then
-        return
-    end
-
-    for _, element: ModuleScript in folder:GetDescendants() do
-        if element:IsA("ModuleScript") then
-            Module._registeredTotal += 1
-        end
-    end
-end
 
 --[[
     Creates a new structure for a new sound, acts the same as
@@ -111,14 +91,10 @@ function Module:root(parent: any | Elements | string, elements: Elements | nil)
         mainFolder = Module:_createStructure() -- Incase parent is nil
     end
     
+    -- Parent sounds into the correct folder
     for _, element: Element in elements do
         for _, sound: Sound in element do
             sound.Parent = mainFolder
-
-            Module._registeredCount += 1
-            if Module._registeredCount >= Module._registeredTotal then
-                Module._registered = true -- All elements accounted for!
-            end
         end
     end
 end
@@ -295,35 +271,21 @@ function Module.useSignal(signal: {[string]: () -> ()} | string, ...: any)
 
     Promise.new(function(resolve, reject)
         local started: number = os.clock()
-        local timeout: number = 10 -- Before timing out (possibly from an error)
-        
-        if not Module._registered then
+        local timeout: number = 5 -- Before timing out (possibly from an error)
+
+        -- Ensure the sound element has been loaded properly
+        if not Module.Signals[signal] then
             repeat
                 task.wait()
                 if os.clock() - started >= timeout then
-                    reject(`{"`useSignal`"} has timed out, due to Echo not being registered {
-                    "properly, please ensure all sound elements return a table"}`)
+                    reject(`{"`useSignal`"} has timed out, this is likely due {
+                    "to an error in the signal or a dependency. Please make sure that the signal was created, and is called using a string!"}`)
                 end
-            until Module._registered
-        end
+            until Module.Signals[signal]
 
-        if typeof(signal) == "string" then
-            started = os.clock()
-
-            -- Ensure the sound element has been loaded properly
-            if not Module.Signals[signal] then
-                repeat
-                    task.wait()
-                    if os.clock() - started >= timeout then
-                        reject(`{"`useSignal`"} has timed out, this is likely due {
-                        "to an error in the signal or a dependency"}`)
-                    end
-                until Module.Signals[signal]
-
-                signal = Module.Signals[signal]
-            else
-                signal = Module.Signals[signal]
-            end
+            signal = Module.Signals[signal]
+        else
+            signal = Module.Signals[signal]
         end
 
         -- Get the most up to date signal, as `signal` might be outdated from calling before registration!

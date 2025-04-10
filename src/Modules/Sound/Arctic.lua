@@ -116,6 +116,10 @@ return function ()
         }
     end)
 
+    Echo.createSignal("Artic", function()
+        print "called!"
+    end)
+
     -- Create a binding that will play the sound once the player enters a area
     -- And stops playing as they leave that area
     Echo.createBinding(Echo.Bind.Area, function()
@@ -147,7 +151,7 @@ return function ()
 
     -- Fire the signal which is connected to a sound element, that sound element is `Reward`
     -- Pass any arguments you may need
-    Echo.useSignal(Echo.Signals.PlayReward, true)
+    Echo.useSignal("PlayReward", true)
 
     return Echo.createElement("Sound", {
         SoundId = "rbxassetid://17612500198",
