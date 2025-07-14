@@ -14,6 +14,7 @@ local Promise = require(Packages.Promise)
 
 local Binds: Folder = script.Modules.Binds
 local Events: Folder = script.Modules.Events
+local Actions: Folder = script.Modules.Actions
 
 local Signal: {connect: () -> ()} = require(script.Modules.Classes.Signal)
 local SpringModule: () -> () = require(script.Modules.Spring)
@@ -40,6 +41,16 @@ type Spring = {
     string: {} -- Config table
 }
 
+type UseState = {
+    subscribe: () -> (),
+    connected: () -> (),
+    state: any
+}
+
+type Ref = {
+    current: any
+}
+
 export type Elements = {Sound}
 export type Element = {string: Property}
 
@@ -56,6 +67,11 @@ local Module = {
         Ended = require(Events.Ended),
         Loaded = require(Events.Loaded),
         Playing = require(Events.Playing)
+    },
+
+    Action = {
+        Play = require(Actions.Play),
+        Pause = require(Actions.Pause),
     },
 
     Util = {
@@ -119,14 +135,17 @@ function Module.createElement(
 
     local sound: Sound = Instance.new(type)
     for property: string | Instance, value: any | table | () -> () in properties do
-        if typeof(value) == "table" then -- From signal / useState
+        if
+            typeof(value) == "function"
+            or typeof(property) == "function"
+        then
+            Module._listenForEventChange(sound, property, value)
+        elseif typeof(value) == "table" then -- From signal / useState
             Module._listenForStateChange(sound, property, value)
         elseif typeof(property) == "Instance" then -- For sound caching!
             if property:IsA("ModuleScript") then
                 Module._createCache(sound, require(property), value)
             end
-        elseif typeof(value) == "function" then
-            Module._listenForEventChange(sound, property, value)
         else
             sound[property] = value
         end
@@ -167,7 +186,8 @@ function Module.useState(defaultState: any) : (any, () -> ())
 
     return {
         subscribe = subscribe,
-        connected = fireConnected
+        connected = fireConnected,
+        state = defaultState
     }, fire
 end
 
@@ -278,7 +298,7 @@ function Module.useSignal(signal: {[string]: () -> ()} | string, ...: any)
             repeat
                 task.wait()
                 if os.clock() - started >= timeout then
-                    reject(`{"`useSignal`"} has timed out, this is likely due {
+                    reject(`{"`useSignal`"}: "{signal}" has timed out, this is likely due {
                     "to an error in the signal or a dependency. Please make sure that the signal was created, and is called using a string!"}`)
                 end
             until Module.Signals[signal]
@@ -316,6 +336,16 @@ end
 --]]
 function Module.removeSignal(name: string)
     Module.Signals[name] = {}
+end
+
+--[[
+    Simply just returns a table setup similar to
+    React's use ref.
+--]]
+function Module.useRef(initialValue: any) : Ref
+    return table.clone({
+        current = initialValue
+    })
 end
 
 --[[
@@ -363,9 +393,9 @@ end
     or `useState` is fired, updating the sound instance's
     properties accordingly
 --]]
-function Module._listenForStateChange(sound: Sound, property: string, value: {})
-    local subscribe: () -> () = value.subscribe
-    local connected: () -> () = value.connected
+function Module._listenForStateChange(sound: Sound, property: string, useState: UseState)
+    local subscribe: () -> () = useState.subscribe
+    local connected: () -> () = useState.connected
 
     -- Listen for property changes
     local disconnect: () -> ()
@@ -378,7 +408,7 @@ function Module._listenForStateChange(sound: Sound, property: string, value: {})
                 return disconnect() -- Disconnect Signal
             end
         end
-    
+
         sound[property] = newState
         sound:SetAttribute(property, newState) -- Assign previous state tied to the property changed
     end)
@@ -403,13 +433,40 @@ end
     Subscribe to a callback function for whenever an event
     is triggered from the sound instance
 --]]
-function Module._listenForEventChange(sound: Sound, event: () -> (), callback: () -> ())
+function Module._listenForEventChange(sound: Sound, event: (any) -> (), callback: (any) -> any | UseState)
+    local isAction: boolean = typeof(callback) == "table"
+    if isAction then
+        return Module._listenForActionChange(sound, event, callback)
+    else
+        local disconnect: () -> ()
+        disconnect = event(sound, function(...: any)
+            local cleanup: () -> ()? = callback(...)
+            if cleanup then
+                cleanup()
+                disconnect()
+            end
+        end)
+    end
+end
+
+--[[
+    Calls certain actions from the sound, like
+    "pause" or "resume", that's tied to a useState
+    connection.
+--]]
+function Module._listenForActionChange(sound: Sound, event: (any) -> (), useState: UseState)
     local disconnect: () -> ()
-    disconnect = event(sound, function(...: any)
-        local cleanup: () -> ()? = callback(...)
-        if cleanup then
-            cleanup()
+    local connection: RBXScriptConnection
+
+    disconnect = useState.subscribe(function(state: boolean)
+        print(state, "state")
+        event(sound, state)
+    end)
+
+    connection = sound.AncestryChanged:Connect(function(_, parent: nil?)
+        if not parent then
             disconnect()
+            connection:Disconnect()
         end
     end)
 end

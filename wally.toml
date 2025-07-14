@@ -1,7 +1,7 @@
 [package]
 name = "fadeluc-123/echo"
-description = "A reactive sound module, basically React for sound! Visit Whiteoak Studios for documentation: https://github.com/Whiteoak-Studios/Echo"
-version = "6.5.4"
+description = "A reactive sound module, used to minimize the amount of datamodels to be kept track of. Visit Whiteoak Studios for documentation: https://github.com/Whiteoak-Studios/Echo"
+version = "7.5.5"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
 license = "MIT"
@@ -35,7 +35,11 @@ include = [
     "src/Modules/Events/Ended.lua",
     "src/Modules/Events/Loaded.lua",
     "src/Modules/Events/Looped.lua",
-    "src/Modules/Events/Playing.lua"
+    "src/Modules/Events/Playing.lua",
+
+    "src/Modules/Actions",
+    "src/Modules/Actions/Pause.lua",
+    "src/Modules/Actions/Play.lua"
 ]
 
 [dependencies]
