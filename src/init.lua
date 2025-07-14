@@ -459,7 +459,6 @@ function Module._listenForActionChange(sound: Sound, event: (any) -> (), useStat
     local connection: RBXScriptConnection
 
     disconnect = useState.subscribe(function(state: boolean)
-        print(state, "state")
         event(sound, state)
     end)
 
