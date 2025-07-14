@@ -173,6 +173,10 @@ function Module.createElement(
         if isRef(value) then
             value.current = sound
         elseif
+            isEvent(property, value)
+        then
+            Module._listenForEventChange(sound, property, value)
+        elseif
             isState(value)
         then
             Module._listenForStateChange(sound, property, value)
@@ -180,28 +184,9 @@ function Module.createElement(
             isCache(property)
         then
             Module._createCache(sound, require(property), value)
-        elseif
-            isEvent(property, value)
-        then
-            Module._listenForEventChange(sound, property, value)
         else
             sound[property] = value
         end
-
-        -- if
-        --     typeof(value) == "function"
-        --     or typeof(property) == "function"
-        -- then
-        --     Module._listenForEventChange(sound, property, value)
-        -- elseif typeof(value) == "table" then -- From signal / useState
-        --     Module._listenForStateChange(sound, property, value)
-        -- elseif typeof(property) == "Instance" then -- For sound caching!
-        --     if property:IsA("ModuleScript") then
-        --         Module._createCache(sound, require(property), value)
-        --     end
-        -- else
-        --     sound[property] = value
-        -- end
     end
 
     -- Insert child instances into the element

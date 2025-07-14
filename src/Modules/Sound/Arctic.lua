@@ -180,15 +180,14 @@ return function ()
         Playing = playing,
         TimePosition = timePosition,
 
-        -- [Echo.Action.Pause] = pause,
-        -- [Echo.Action.Play] = play,
+        [Echo.Action.Pause] = pause,
+        [Echo.Action.Play] = play,
 
-        -- [Echo.Event.Loaded] = function() -- Does not fire if `Looped` is enabled
-
-        --     return function () -- Cleanup and disconnect connection
-        --         -- Always provide a cleanup for one time events like this!
-        --     end
-        -- end
+        [Echo.Event.Loaded] = function() -- Does not fire if `Looped` is enabled
+            return function () -- Cleanup and disconnect connection
+                -- Always provide a cleanup for one time events like this!
+            end
+        end
     }, {
         Distortion = Echo.createElement("DistortionSoundEffect", {
             Level = styles.volume -- Even works on children components!
