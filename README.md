@@ -343,6 +343,57 @@ return function ()
 end
 ```
 
+# Exposed Refs
+
+```lua
+--[[
+    Exposed refs allow you to access the actual
+    sound instance it's self. This can be useful
+    for if you need to access a sound's `TimePosition`
+    property, which can be read only from the
+    sound it's self.
+
+    However, you should update sound proeprties that can
+    be updated through a `useState`, as doing so can cause
+    race conditions and mess up the sound's state. This should
+    be soley reserved for if you need to read a property, that
+    requires the sound instance - like `TimePosition`
+
+    Upon creation of the sound instance, the variable attached
+    to `createRef`, will be updated and with the newly created
+    sound instance. `createRef` is a copy of `useRef`, which will
+    also work in place of `createRef, but `createRef` is more
+    explicit and clear about what it's doing.
+
+    To access the sound instance from `createRef`, simply access
+    it as you would with a `useRef` - like as follows:
+
+    Note: Upon creation of the sound instance, the variable attached
+    to `createRef`, will be updated and with the newly created
+    sound instance, but will remain nil until then. It's best to only rely
+    of this in a `createSignal` function, as signals can only be fired
+    once all dependencies have been created.
+
+
+    ```lua
+    local soundInstance: Sound = soundRef.current
+    print(soundInstance.TimePosition)
+    ```
+--]]
+
+return function ()
+    local soundRef = Echo.createRef()
+
+    return Echo.createElement("Sound", {
+        SoundId = "rbxassetid://873617644",
+        Volume = .25,
+        Name = "Reward",
+
+        ref = soundRef
+    })
+end
+```
+
 # Script Examples:
 
 ### Basic

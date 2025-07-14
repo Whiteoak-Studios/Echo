@@ -133,22 +133,75 @@ function Module.createElement(
         }
     end
 
-    local sound: Sound = Instance.new(type)
-    for property: string | Instance, value: any | table | () -> () in properties do
+    -- If the value is a `useState`
+    local function isState(value: any) : boolean | nil
+        if typeof(value) == "table" then
+            if value.subscribe then
+                return true
+            end
+        end
+    end
+
+    -- If the value is an exposed ref
+    local function isRef(value: {}) : boolean | nil
+        if typeof(value) == "table" then
+            return not isState(value)
+        end
+    end
+
+    -- For sound caching!
+    local function isCache(property: any) : boolean | nil
+        if typeof(property) == "Instance" then
+            if property:IsA("ModuleScript") then
+                return true
+            end
+        end
+    end
+
+    -- If the value from the table is an event like `Loaded` or `Played`
+    local function isEvent(property: any, value: any) : boolean | nil
         if
             typeof(value) == "function"
             or typeof(property) == "function"
         then
-            Module._listenForEventChange(sound, property, value)
-        elseif typeof(value) == "table" then -- From signal / useState
+            return true
+        end
+    end
+
+    local sound: Sound = Instance.new(type)
+    for property: string | Instance, value: any in properties do
+        if isRef(value) then
+            value.current = sound
+        elseif
+            isState(value)
+        then
             Module._listenForStateChange(sound, property, value)
-        elseif typeof(property) == "Instance" then -- For sound caching!
-            if property:IsA("ModuleScript") then
-                Module._createCache(sound, require(property), value)
-            end
+        elseif
+            isCache(property)
+        then
+            Module._createCache(sound, require(property), value)
+        elseif
+            isEvent(property, value)
+        then
+            Module._listenForEventChange(sound, property, value)
         else
             sound[property] = value
         end
+
+        -- if
+        --     typeof(value) == "function"
+        --     or typeof(property) == "function"
+        -- then
+        --     Module._listenForEventChange(sound, property, value)
+        -- elseif typeof(value) == "table" then -- From signal / useState
+        --     Module._listenForStateChange(sound, property, value)
+        -- elseif typeof(property) == "Instance" then -- For sound caching!
+        --     if property:IsA("ModuleScript") then
+        --         Module._createCache(sound, require(property), value)
+        --     end
+        -- else
+        --     sound[property] = value
+        -- end
     end
 
     -- Insert child instances into the element
@@ -346,6 +399,22 @@ function Module.useRef(initialValue: any) : Ref
     return table.clone({
         current = initialValue
     })
+end
+
+--[[
+    Creates a ref that can be assigned to upon element
+    creation, as a way to expose the sound element
+    to the creating function. Useful for if you need to read
+    certain properties like `TimePosition`.
+    
+    Ideally, just like in React, you should't rely on this
+    to update properties. Instead, you should use `useState`,
+    but this exits for things like `TimePosition`,
+    which cannot be read unless you have the
+    sound instance.
+--]]
+function Module.createRef()
+    return Module.useRef(nil :: Sound)
 end
 
 --[[

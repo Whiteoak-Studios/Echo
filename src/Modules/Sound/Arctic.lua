@@ -109,6 +109,8 @@ return function ()
     local paused = Echo.useRef(pause.state)
     local played = Echo.useRef(play.state)
 
+    local sound = Echo.createRef()
+
     local styles, api = Echo.useSpring(function()
         return {
             volume = 0,
@@ -168,6 +170,8 @@ return function ()
     Echo.useSignal("PlayReward", true)
 
     return Echo.createElement("Sound", {
+        ref = sound,
+
         SoundId = "rbxassetid://17612500198",
         Looped = true,
         Name = "Arctic",
@@ -176,8 +180,8 @@ return function ()
         Playing = playing,
         TimePosition = timePosition,
 
-        [Echo.Action.Pause] = pause,
-        [Echo.Action.Play] = play,
+        -- [Echo.Action.Pause] = pause,
+        -- [Echo.Action.Play] = play,
 
         -- [Echo.Event.Loaded] = function() -- Does not fire if `Looped` is enabled
 
