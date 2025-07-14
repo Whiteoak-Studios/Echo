@@ -38,8 +38,8 @@ include = [
     "src/Modules/Events/Playing.lua",
 
     "src/Modules/Actions",
-    "src/Modules/Actions/Pause",
-    "src/Modules/Actions/Play"
+    "src/Modules/Actions/Pause.lua",
+    "src/Modules/Actions/Play.lua"
 ]
 
 [dependencies]
