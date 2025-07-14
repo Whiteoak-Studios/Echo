@@ -291,6 +291,58 @@ end
 
 ```
 
+# Actions
+
+```lua
+--[[
+    Actions are methods tied to the sound instance,
+    that cannot be triggered through a property change,
+    like `.Volume` or `.Playing`.
+
+    The reason for creating actions, is for `Pause`, which
+    is a method only - which is useful for custom radio controllers.
+    
+    Just like Events, actions are called the same way - within the creation
+    of the sound instance, wrapped in brackets. The only difference between
+    how events and actions are setup, is that events are called with a function
+    that returns a cleanup function, while actions are called with a `useState`
+    binding - that can be triggered based on the change of the state.
+
+    Currently, there are only 2 actions available - "Pause" and "Play". If you need
+    to stop a sound, or unpause it - provide a "false" value into the `useState`.
+
+    Note: Actions are boolean values only, any other value provided within the
+    `useState` will be ignored. When you update the `useState` or create it, provide
+    boolean values only.
+--]]
+
+return function ()
+    local pause, setPause = Echo.useState(false) -- Booleans only
+    local play, setPlay = Echo.useState(false) -- Booleans only
+
+    task.delay(2, function())
+        setPause(true) -- Will pause the sound
+        task.wait(1)
+        setPause(false) -- Will unpause the sound
+            
+        task.delay(2, function())
+            setPlay(true) -- Will stop the sound
+            task.wait(1)
+            setPlay(false) -- Will play the sound
+        end
+    end
+
+    return Echo.createElement("Sound", {
+        SoundId = "rbxassetid://873617644",
+        Volume = .25,
+        Name = "Reward",
+
+        [Echo.Action.Pause] = pause
+        [Echo.Action.Play] = play
+    })
+end
+```
+
 # Script Examples:
 
 ### Basic

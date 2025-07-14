@@ -103,6 +103,11 @@ local Echo = require(script.Parent.Parent.Parent)
 return function ()
     local timePosition, setTimePosition = Echo.useState(0)
     local playing, setPlaying = Echo.useState(true)
+    local pause, setPause = Echo.useState(false)
+    local play, setPlay = Echo.useState(true)
+
+    local paused = Echo.useRef(pause.state)
+    local played = Echo.useRef(play.state)
 
     local styles, api = Echo.useSpring(function()
         return {
@@ -119,6 +124,15 @@ return function ()
     Echo.createSignal("Artic", function()
         print "called!"
     end)
+
+    -- task.delay(2, function()
+    --     task.spawn(function()
+    --         while task.wait(1) do
+    --             played.current = not played.current
+    --             setPlay(played.current)
+    --         end
+    --     end)
+    -- end)
 
     -- Create a binding that will play the sound once the player enters a area
     -- And stops playing as they leave that area
@@ -162,13 +176,15 @@ return function ()
         Playing = playing,
         TimePosition = timePosition,
 
-        [Echo.Event.Loaded] = function() -- Does not fire if `Looped` is enabled
-            print "Sound Loaded"
+        [Echo.Action.Pause] = pause,
+        [Echo.Action.Play] = play,
 
-            return function () -- Cleanup and disconnect connection
-                -- Always provide a cleanup for one time events like this!
-            end
-        end
+        -- [Echo.Event.Loaded] = function() -- Does not fire if `Looped` is enabled
+
+        --     return function () -- Cleanup and disconnect connection
+        --         -- Always provide a cleanup for one time events like this!
+        --     end
+        -- end
     }, {
         Distortion = Echo.createElement("DistortionSoundEffect", {
             Level = styles.volume -- Even works on children components!

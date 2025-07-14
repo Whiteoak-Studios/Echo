@@ -7,18 +7,18 @@ return function ()
 
     describe("root", function()
         it("create a new root that can store and handle sound elements within (React for sound)", function()
-            Echo:root("Footsteps", Echo.createElement(Echo.Fragment, {
-                Reward,
-                Arctic,
-                Spin,
-                Footstep
-            }))
+            -- Echo:root("Footsteps", Echo.createElement(Echo.Fragment, {
+            --     Reward,
+            --     Arctic,
+            --     Spin,
+            --     Footstep
+            -- }))
 
             task.delay(2, function()
                 Echo.useSignal("Artic")
             end)
 
-            -- Echo:root(workspace, Echo.createElement(Arctic))
+            Echo:root(workspace, Echo.createElement(Arctic))
         end)
     end)
 end
