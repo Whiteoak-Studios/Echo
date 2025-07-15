@@ -187,7 +187,11 @@ return function ()
             return function () -- Cleanup and disconnect connection
                 -- Always provide a cleanup for one time events like this!
             end
-        end
+        end,
+
+        Attributes = {
+            ["artist"] = "Fadeluc_123"
+        }
     }, {
         Distortion = Echo.createElement("DistortionSoundEffect", {
             Level = styles.volume -- Even works on children components!

@@ -11,6 +11,7 @@ local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local Packages = ReplicatedStorage.Packages
 
 local Promise = require(Packages.Promise)
+local Sift = require(Packages.Sift)
 
 local Binds: Folder = script.Modules.Binds
 local Events: Folder = script.Modules.Events
@@ -19,6 +20,8 @@ local Actions: Folder = script.Modules.Actions
 local Signal: {connect: () -> ()} = require(script.Modules.Classes.Signal)
 local SpringModule: () -> () = require(script.Modules.Spring)
 
+type Children = {[number]: Instance}
+type Attributes = {[string]: string}
 type CreationInfo = {
     name: string,
     type: string,
@@ -122,7 +125,7 @@ end
 function Module.createElement(
     type: string | Fragment | () -> Element,
     properties: Element | Props,
-    children: Element?
+    children: Element | Children?
 ) : {[number]: Sound} | {[number]: Element}
 
     if typeof(type) == "boolean" then
@@ -134,7 +137,7 @@ function Module.createElement(
     end
 
     -- If the value is a `useState`
-    local function isState(value: any) : boolean | nil
+    local function isState(value: UseState?) : boolean | nil
         if typeof(value) == "table" then
             if value.subscribe then
                 return true
@@ -143,14 +146,14 @@ function Module.createElement(
     end
 
     -- If the value is an exposed ref
-    local function isRef(value: {}) : boolean | nil
+    local function isRef(value: UseState?) : boolean | nil
         if typeof(value) == "table" then
             return not isState(value)
         end
     end
 
     -- For sound caching!
-    local function isCache(property: any) : boolean | nil
+    local function isCache(property: Instance?) : boolean | nil
         if typeof(property) == "Instance" then
             if property:IsA("ModuleScript") then
                 return true
@@ -159,7 +162,7 @@ function Module.createElement(
     end
 
     -- If the value from the table is an event like `Loaded` or `Played`
-    local function isEvent(property: any, value: any) : boolean | nil
+    local function isEvent(property: () -> ()?, value: () -> ()?) : boolean | nil
         if
             typeof(value) == "function"
             or typeof(property) == "function"
@@ -168,9 +171,23 @@ function Module.createElement(
         end
     end
 
+    local function isAttribute(property: string?, value: Attributes?)
+        if
+            typeof(value) == "table"
+            and typeof(property) == "string"
+            and not Sift.Array.is(value)
+        then
+            if property == "Attributes" then
+                return true
+            end
+        end
+    end
+
     local sound: Sound = Instance.new(type)
-    for property: string | Instance, value: any in properties do
-        if isRef(value) then
+    for property: any, value: any in properties do
+        if isAttribute(property, value) then
+            Module._applyAttributes(sound, value)
+        elseif isRef(value) then
             value.current = sound
         elseif
             isEvent(property, value)
@@ -191,7 +208,7 @@ function Module.createElement(
 
     -- Insert child instances into the element
     if children then
-        for name: string, child: {[number]: Instance} in children do
+        for name: string, child: Children in children do
             for _, childComponent: Instance in child do
                 childComponent.Name = name
                 childComponent.Parent = sound
@@ -522,6 +539,22 @@ function Module._listenForActionChange(sound: Sound, event: (any) -> (), useStat
             connection:Disconnect()
         end
     end)
+end
+
+--[[
+    Apply custom properties to the sound
+    instance, useful for tracking the artist
+    of a soundtrack.
+--]]
+
+function Module._applyAttributes(sound: Sound, attributes: Attributes)
+    if not attributes then
+        return
+    end
+
+    for name: string, property: any in attributes do
+        sound:SetAttribute(name, property)
+    end
 end
 
 return Module
