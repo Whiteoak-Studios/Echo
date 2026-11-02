@@ -1,8 +1,7 @@
 --[[
     Formats every .luau file under the repo's roots with StyLua and then
     restores the space after the function keyword of anonymous functions,
-    which StyLua removes and the house style requires. A root that does not
-    exist yet is skipped
+    which StyLua removes and the house style requires
 --]]
 
 --!strict

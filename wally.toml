@@ -14,5 +14,4 @@ include = ["src", "src/**", "default.project.json", "wally.toml", "README.md", "
 
 [dependencies]
 Promise = "evaera/promise@^4.0.0"
-Sift = "csqrl/sift@0.0.11"
 Cellar = "fadeluc-123/cellar@^0.1.0"
