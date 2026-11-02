@@ -1,5 +1,6 @@
 {
 	"name": "Echo",
+	"servePlaceIds": [132561817220520],
 	"servePort": 34884,
 	"tree": {
 		"$className": "DataModel",
