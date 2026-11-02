@@ -1,1 +1,3 @@
-std = "roblox+testez"
+std = "roblox"
+
+exclude = ["tests/**"]

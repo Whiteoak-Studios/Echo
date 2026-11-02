@@ -1,0 +1,6 @@
+{
+	"luau-lsp.sourcemap.rojoProjectFile": "dev.project.json",
+	"luau-lsp.fflags.enableNewSolver": true,
+	"luau-lsp.fflags.enableByDefault": true,
+	"luau-lsp.fflags.sync": false
+}
