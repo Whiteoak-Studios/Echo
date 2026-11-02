@@ -1,18 +1,21 @@
-# Project place file
-/Echo.rbxlx
-
-# Roblox Studio lock files
-/*.rbxlx.lock
-/*.rbxl.lock
-
-# Sourcemap
+.claude/
+CLAUDE.md
+KB/
+Handoffs/
+Open-Decisions.md
+Packages/
+ServerPackages/
+DevPackages/
 sourcemap.json
-
-Packages
-ServerPackages
-/*.lock
-*.yml
-
-# docs
-/docs
-node_modules
+globalTypes.d.luau
+wally.lock
+graphify-out/
+*.rbxl
+*.rbxlx
+*.rbxl.lock
+*.rbxlx.lock
+.env
+.env.*
+*.pem
+*.key
+auth.toml

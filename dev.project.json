@@ -1,0 +1,13 @@
+{
+	"name": "Echo",
+	"servePort": 34884,
+	"tree": {
+		"$className": "DataModel",
+		"ReplicatedStorage": {
+			"Packages": {
+				"$path": "Packages",
+				"Echo": { "$path": "src" }
+			}
+		}
+	}
+}
