@@ -167,7 +167,7 @@ function Cache.take(mode: Mode, request: TakeRequest): VoiceToken?
 
 	table.insert(Live, voice)
 	pool.inUse += 1
-	
+
 	if group then
 		Groups[group] = (Groups[group] or 0) + 1
 	end

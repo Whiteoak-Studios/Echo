@@ -42,7 +42,7 @@ local function timing(config: any): (number, number)
 
 	local duration: any = config.duration or 0
 	local delay: any = config.delay or 0
-	
+
 	if not isSeconds(duration) or not isSeconds(delay) then
 		error(`Echo: a spring's duration and delay are seconds, 0 or more, not {duration} and {delay}`, 3)
 	end

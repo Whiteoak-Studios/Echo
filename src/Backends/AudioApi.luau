@@ -490,7 +490,7 @@ end
 function AudioApi.clear(tree: Attachment)
 	local voice: Voice = voiceOf(tree)
 	local player: AudioPlayer = voice.player
-	
+
 	halt(voice)
 
 	for property: string in voice.applied do

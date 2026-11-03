@@ -314,7 +314,7 @@ end
 function Legacy.clear(tree: Attachment)
 	local voice: Voice = voiceOf(tree)
 	local sound: Sound = voice.sound
-	
+
 	halt(voice)
 
 	local defaults: Instance = Properties.probe("Sound")

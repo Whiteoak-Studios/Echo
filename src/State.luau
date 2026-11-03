@@ -30,7 +30,7 @@ local State = {}
 function State.new<T>(default: T): (State<T>, (value: T) -> ())
 	local signal: Signal.Signal = Signal.new()
 	local state: Fields<T> = { current = default }
-	
+
 	state[Keys.State] = true
 	state[SIGNAL] = signal
 

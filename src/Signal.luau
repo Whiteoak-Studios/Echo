@@ -40,7 +40,7 @@ function Signal.subscribe(self: Self, callback: Callback): () -> ()
 
 	local token: { nil } = {}
 	local bucket: { [{ nil }]: Callback } = self._firing > 0 and self._held or self._listeners
-	
+
 	bucket[token] = callback
 
 	-- Cleanup
@@ -68,7 +68,7 @@ function Signal.fire(self: Self, ...: any)
 			failure = message
 		end
 	end
-	
+
 	self._firing -= 1
 
 	-- A callback joins only once no fire walks the listeners, since a key added mid-walk breaks the walk
