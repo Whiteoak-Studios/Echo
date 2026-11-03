@@ -1,13 +1,13 @@
 --[[
-    `lune run legacy` exports 7.8.6, the src folder on main, into the
-    gitignored .legacy/src file for file, replacing what was there
+    `lune run legacy` exports 7.8.6's src folder, read from its commit, into
+    the gitignored .legacy/src file for file, replacing what was there
 --]]
 
 --!strict
 local fs = require("@lune/fs")
 local process = require("@lune/process")
 
-local REF: string = "main"
+local REF: string = "606a8ec62cb025c1bb89a9cbfd9c86b24c159b20"
 local SOURCE: string = "src"
 local TARGET: string = `.legacy/{SOURCE}`
 

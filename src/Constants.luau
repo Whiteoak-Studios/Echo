@@ -55,6 +55,19 @@ local REFUSED_PROPERTIES: { [string]: boolean } = {
 	Playing = true,
 }
 
+-- A legacy Sound's own roll-off, which an Audio API voice's distance curve starts from
+local ROLL_OFF_MODE: Enum.RollOffMode = Enum.RollOffMode.Inverse
+local ROLL_OFF_MIN_DISTANCE: number = 10
+local ROLL_OFF_MAX_DISTANCE: number = 10000
+
+-- Where an effect sits, its name and whether it is on are Echo's own, so an effect element never sets them
+local EFFECT_REFUSED_PROPERTIES: { [string]: boolean } = {
+	Parent = true,
+	Name = true,
+	Enabled = true,
+	Bypass = true,
+}
+
 local Types = require(script.Parent.Types)
 
 type Mode = Types.Mode
@@ -68,4 +81,8 @@ return {
 	CURVE_PROPERTIES = CURVE_PROPERTIES,
 	EFFECTS = EFFECTS,
 	REFUSED_PROPERTIES = REFUSED_PROPERTIES,
+	ROLL_OFF_MODE = ROLL_OFF_MODE,
+	ROLL_OFF_MIN_DISTANCE = ROLL_OFF_MIN_DISTANCE,
+	ROLL_OFF_MAX_DISTANCE = ROLL_OFF_MAX_DISTANCE,
+	EFFECT_REFUSED_PROPERTIES = EFFECT_REFUSED_PROPERTIES,
 }
