@@ -137,4 +137,11 @@ export type Backend = {
 	clear: (tree: Attachment) -> (),
 }
 
+export type HandleOptions = {
+	mode: Mode,
+	backend: Backend,
+	target: Instance | string | nil, -- The root's, which a world voice follows
+	config: Config,
+}
+
 return {}

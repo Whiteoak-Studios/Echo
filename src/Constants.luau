@@ -1,7 +1,7 @@
 --[[
     The constants Echo's own correctness needs: the Modes and their pool
-    categories, the SoundService folder's name, the curve's point count, and
-    which properties and effects an element takes in each Mode
+    categories, the fields configure takes, the SoundService folder's name,
+    the curve's point count, and which properties and effects each Mode takes
 --]]
 
 --!strict
@@ -68,6 +68,19 @@ local EFFECT_REFUSED_PROPERTIES: { [string]: boolean } = {
 	Bypass = true,
 }
 
+-- The fields configure takes, and the numbers each pool's size holds
+local CONFIG_FIELDS: { [string]: boolean } = {
+	mode = true,
+	cache = true,
+	caps = true,
+	buses = true,
+}
+
+local CACHE_SIZE_FIELDS: { string } = { "initial", "growAt", "growBy", "ceiling" }
+
+-- The element property that labels it in getAll, which no voice is ever given
+local LABEL: string = "Name"
+
 local Types = require(script.Parent.Types)
 
 type Mode = Types.Mode
@@ -85,4 +98,7 @@ return {
 	ROLL_OFF_MIN_DISTANCE = ROLL_OFF_MIN_DISTANCE,
 	ROLL_OFF_MAX_DISTANCE = ROLL_OFF_MAX_DISTANCE,
 	EFFECT_REFUSED_PROPERTIES = EFFECT_REFUSED_PROPERTIES,
+	CONFIG_FIELDS = CONFIG_FIELDS,
+	CACHE_SIZE_FIELDS = CACHE_SIZE_FIELDS,
+	LABEL = LABEL,
 }
