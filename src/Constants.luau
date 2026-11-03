@@ -1,7 +1,7 @@
 --[[
-    The constants Echo's own correctness needs: the Modes and their pool
-    categories, the fields configure takes, the SoundService folder's name,
-    the curve's point count, and which properties and effects each Mode takes
+    The constants Echo's own correctness needs: the Modes and their pools,
+    the fields configure takes, the SoundService folder's name, the curve's
+    point count, and which properties and effects each Mode takes
 --]]
 
 --!strict
@@ -12,11 +12,14 @@ local CATEGORIES: { [Mode]: string } = {
 	AudioApi = "Echo/AudioApi",
 }
 
--- Holds a 2D Legacy voice's Sound while it plays
+-- Holds a 2D Legacy voice's Sound while it plays, the Audio API backend's AudioDeviceOutput and preload's holders
 local FOLDER_NAME: string = "Echo"
 
 -- The engine takes at most 400 points, which apply only in its Custom mode
 local CURVE_POINTS: number = 32
+
+-- Seconds preload waits for each id to turn ready, since one that never loads reports neither ready nor failed
+local PRELOAD_WAIT: number = 10
 
 -- Each element property Audio API mode takes, to the AudioPlayer property it writes
 local AUDIO_API_PROPERTIES: { [string]: string } = {
@@ -74,9 +77,20 @@ local CONFIG_FIELDS: { [string]: boolean } = {
 	cache = true,
 	caps = true,
 	buses = true,
+	parent = true,
+	warnAudioApiLimit = true,
 }
 
 local CACHE_SIZE_FIELDS: { string } = { "initial", "growAt", "growBy", "ceiling" }
+
+-- The pool fields given together or not at all, in the order configure names the first one missing
+local GROWTH_FIELDS: { string } = { "growAt", "growBy", "ceiling" }
+
+-- The voices a growth step adds each frame, since cloning a whole step's voices on one frame costs milliseconds
+local GROW_PER_FRAME: number = 5
+
+-- About how many AudioPlayers the engine renders on one fader, past which it silences the newest and configure warns
+local AUDIO_API_VOICE_LIMIT: number = 150
 
 -- The element property that labels it in getAll, which no voice is ever given
 local LABEL: string = "Name"
@@ -90,6 +104,7 @@ return {
 	CATEGORIES = CATEGORIES,
 	FOLDER_NAME = FOLDER_NAME,
 	CURVE_POINTS = CURVE_POINTS,
+	PRELOAD_WAIT = PRELOAD_WAIT,
 	AUDIO_API_PROPERTIES = AUDIO_API_PROPERTIES,
 	CURVE_PROPERTIES = CURVE_PROPERTIES,
 	EFFECTS = EFFECTS,
@@ -100,5 +115,8 @@ return {
 	EFFECT_REFUSED_PROPERTIES = EFFECT_REFUSED_PROPERTIES,
 	CONFIG_FIELDS = CONFIG_FIELDS,
 	CACHE_SIZE_FIELDS = CACHE_SIZE_FIELDS,
+	GROWTH_FIELDS = GROWTH_FIELDS,
+	GROW_PER_FRAME = GROW_PER_FRAME,
+	AUDIO_API_VOICE_LIMIT = AUDIO_API_VOICE_LIMIT,
 	LABEL = LABEL,
 }

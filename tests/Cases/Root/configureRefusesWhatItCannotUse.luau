@@ -1,6 +1,6 @@
 --[[
     Configure refuses every value it cannot use, naming its field, before it
-    sets anything up, so a good configuration still takes after them all
+    sets anything up or warns, so a good configuration still takes after them
 --]]
 
 --!strict
@@ -49,6 +49,12 @@ return function (): (boolean, string | nil)
 		{ config = with({ cache = { Legacy = sized({ ceiling = "8" }) } }), names = "config.cache.Legacy.ceiling" },
 		{ config = with({ cache = { Legacy = sized({ growAt = 5 }) } }), names = "config.cache.Legacy.growAt" },
 		{ config = with({ cache = { Legacy = sized({ ceiling = 3 }) } }), names = "config.cache.Legacy.ceiling" },
+		{ config = with({ cache = { Legacy = { initial = 4, growAt = 2 } } }), names = "config.cache.Legacy.growBy" },
+		{ config = with({ cache = { Legacy = { initial = 4, ceiling = 8 } } }), names = "config.cache.Legacy.growAt" },
+		{
+			config = with({ cache = { Legacy = { growAt = 2, growBy = 2, ceiling = 8 } } }),
+			names = "config.cache.Legacy.initial",
+		},
 		{ config = with({ mode = "Classic" }), names = "config.mode" },
 		{ config = with({ mode = "AudioApi" }), names = "config.mode" },
 		{ config = with({ caps = 12 }), names = "config.caps" },
@@ -62,6 +68,13 @@ return function (): (boolean, string | nil)
 		{
 			config = with({ buses = { Effects = { interactionGroup = 1 } } }),
 			names = "config.buses.Effects.interactionGroup",
+		},
+		{ config = with({ parent = "Workspace" }), names = "config.parent" },
+		{ config = with({ parent = folder }), names = "config.parent" },
+		{ config = with({ warnAudioApiLimit = "no" }), names = "config.warnAudioApiLimit" },
+		{
+			config = with({ cache = { Legacy = SIZE, AudioApi = sized({ ceiling = 200 }) }, warnAudioApiLimit = 0 }),
+			names = "config.warnAudioApiLimit",
 		},
 	}
 
@@ -77,6 +90,8 @@ return function (): (boolean, string | nil)
 	local sound: any = env.game:GetService("SoundService")
 	if sound:FindFirstChild("Echo") or #env.game.Workspace.Terrain:GetChildren() ~= 0 then
 		return false, "a refused configuration set a backend up or filled a pool"
+	elseif #env.warnings ~= 0 then
+		return false, `a refused configuration warned: {env.warnings[1]}`
 	end
 
 	local good: { [string]: any } = with({

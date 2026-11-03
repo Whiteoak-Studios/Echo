@@ -49,7 +49,7 @@ type Voice = Echo.Voice
 type Sample = {
 	cost: number, -- Seconds the play call took
 	loaded: boolean, -- Whether the instance had its asset ready at the call
-	startDelay: number, -- Seconds from the call to the next Heartbeat, less the TimePosition there
+	start: number, -- Seconds from just before the call to the Heartbeat at which TimePosition first moves
 	frames: number, -- Heartbeats until TimePosition first moves
 }
 
@@ -84,8 +84,8 @@ end
 
 --[[
     Times one play: the play call's cost, whether the asset was ready at
-    the call, the start delay at the next Heartbeat and the frames until
-    TimePosition moves, then stops the voice before the next play
+    the call, and the seconds and the frames from the call until
+    TimePosition first moves, then stops the voice before the next play
 --]]
 
 local function measure(job: Job, handle: Handle, overrides: Echo.Overrides?, what: string): Sample
@@ -100,12 +100,14 @@ local function measure(job: Job, handle: Handle, overrides: Echo.Overrides?, wha
 	local instance: Playing = job:need(played.instance, `instance playing {what}`)
 	local loaded: boolean = Job.loaded(instance)
 
+	-- A legacy Sound's TimePosition moves in steps of about 22 ms, so a Legacy start reads in those steps
 	RunService.Heartbeat:Wait()
-	local startDelay: number = os.clock() - started - instance.TimePosition
+	local beat: number = os.clock()
 
 	local frames: number = 1
 	while instance.TimePosition <= 0 and frames < MAX_FRAMES do
 		RunService.Heartbeat:Wait()
+		beat = os.clock()
 		frames += 1
 	end
 
@@ -115,34 +117,34 @@ local function measure(job: Job, handle: Handle, overrides: Echo.Overrides?, wha
 
 	handle:stop(played)
 
-	return { cost = cost, loaded = loaded, startDelay = startDelay, frames = frames }
+	return { cost = cost, loaded = loaded, start = beat - started, frames = frames }
 end
 
 -- The figures of a set of timed plays, each as its median, 95th percentile and worst
 local function report(label: string, samples: { Sample }): string
 	local costs: { number } = {}
-	local delays: { number } = {}
+	local starts: { number } = {}
 	local frames: { number } = {}
 	local loaded: number = 0
 
 	for _, sample: Sample in samples do
 		table.insert(costs, sample.cost * MICROSECONDS)
-		table.insert(delays, sample.startDelay * MILLISECONDS)
+		table.insert(starts, sample.start * MILLISECONDS)
 		table.insert(frames, sample.frames)
 		loaded += sample.loaded and 1 or 0
 	end
 
 	local costMedian: number, costHigh: number, costWorst: number = Job.summary(costs)
-	local delayMedian: number, delayHigh: number, delayWorst: number = Job.summary(delays)
+	local startMedian: number, startHigh: number, startWorst: number = Job.summary(starts)
 	local frameMedian: number, frameHigh: number, frameWorst: number = Job.summary(frames)
 
 	local cost: string = `{math.round(costMedian)}, p95 {math.round(costHigh)}, worst {math.round(costWorst)}`
-	local delay: string = `{Job.fixed(delayMedian)}, p95 {Job.fixed(delayHigh)}, worst {Job.fixed(delayWorst)}`
+	local start: string = `{Job.fixed(startMedian)}, p95 {Job.fixed(startHigh)}, worst {Job.fixed(startWorst)}`
 	local moved: string = `{frameMedian}, p95 {frameHigh}, worst {frameWorst}`
 
 	return table.concat({
 		`{label}: play call in microseconds median {cost}`,
-		`start delay in ms median {delay}`,
+		`start in ms median {start}`,
 		`frames until TimePosition moves median {moved}`,
 		`loaded at the call {loaded} of {#samples}`,
 	}, "; ")

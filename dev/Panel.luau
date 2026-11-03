@@ -1,11 +1,14 @@
 --[[
-    The panel on screen, for a device no MCP reaches: a button for each
-    benchmark job and audible pass, the caption of the sound playing, and
-    the last job's report in a scrolling text
+    The panel on screen, for a device no MCP reaches: a button for each job
+    name it is given, a caption for what is playing or a click's figures,
+    and the last job's report in a scrolling text
 --]]
 
 --!strict
 local Players = game:GetService("Players")
+
+local CAPTION_HEIGHT: number = 0.1 -- The caption's share of the frame's height
+local RESULT_HEIGHT: number = 0.45 -- The result scroll's share, the buttons sharing what the two leave
 
 local Panel = {
 	_caption = nil :: TextLabel?,
@@ -37,16 +40,20 @@ function Panel.build(self: Self, names: { string }, press: (name: string) -> ())
 
 	local caption: TextLabel = Instance.new("TextLabel")
 	caption.LayoutOrder = 0
-	caption.Size = UDim2.fromScale(1, 0.1)
+	caption.Size = UDim2.fromScale(1, CAPTION_HEIGHT)
 	caption.TextScaled = true
+	caption.TextWrapped = true
 	caption.Text = ""
 	caption.Parent = frame
+
+	-- The frame's whole height, 1, less the caption and the result, split evenly however many buttons there are
+	local buttonHeight: number = (1 - CAPTION_HEIGHT - RESULT_HEIGHT) / #names
 
 	for index: number, name: string in names do
 		local button: TextButton = Instance.new("TextButton")
 		button.Name = name
 		button.LayoutOrder = index
-		button.Size = UDim2.fromScale(1, 0.07)
+		button.Size = UDim2.fromScale(1, buttonHeight)
 		button.TextScaled = true
 		button.Text = name
 		button.Parent = frame
@@ -59,7 +66,7 @@ function Panel.build(self: Self, names: { string }, press: (name: string) -> ())
 
 	local scroll: ScrollingFrame = Instance.new("ScrollingFrame")
 	scroll.LayoutOrder = #names + 1
-	scroll.Size = UDim2.fromScale(1, 0.45)
+	scroll.Size = UDim2.fromScale(1, RESULT_HEIGHT)
 	scroll.CanvasSize = UDim2.fromScale(0, 0)
 	scroll.AutomaticCanvasSize = Enum.AutomaticSize.Y
 	scroll.Parent = frame

@@ -1,6 +1,7 @@
 --[[
     The fake ContentProvider, whose PreloadAsync records the ids of every
-    call and reports each with the status a case gives it
+    call, refuses an id passed as a bare string as the engine refuses every
+    audio id, and reports an instance's ids with the status a case gives each
 --]]
 
 --!strict
@@ -47,19 +48,26 @@ function ContentProvider.classes(world: World): { [string]: Spec }
 
 					-- Whiteoak TODO: the call answers at once; park it on the clock once a case needs a preload still running
 					local ids: { string } = {}
+					local bare: { [number]: boolean } = {} -- The places in ids of the ones passed as strings
 					for _, item: any in list do
 						if world.is(item) then
 							addIds(item, ids)
 						elseif type(item) == "string" then
 							table.insert(ids, item)
+							bare[#ids] = true
 						end
 					end
 
 					table.insert(preload.calls, ids)
 
-					for _, id: string in ids do
+					for index: number, id: string in ids do
+						local status: any = preload.statuses[id] or roblox.Enum.AssetFetchStatus.Success
+						if bare[index] then
+							status = roblox.Enum.AssetFetchStatus.Failure
+						end
+
 						if callback then
-							callback(id, preload.statuses[id] or roblox.Enum.AssetFetchStatus.Success)
+							callback(id, status)
 						end
 					end
 				end,

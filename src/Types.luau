@@ -9,9 +9,10 @@ export type Mode = "AudioApi" | "Legacy"
 
 export type CacheSize = {
 	initial: number,
-	growAt: number,
-	growBy: number,
-	ceiling: number,
+	-- Read-only, so a size table of four plain numbers still passes, since a writable field must match exactly
+	read growAt: number?,
+	read growBy: number?,
+	read ceiling: number?,
 }
 
 export type Bus = {
@@ -25,6 +26,8 @@ export type Config = {
 	cache: { [Mode]: CacheSize },
 	caps: { [string]: number }?,
 	buses: { [string]: Bus }?,
+	parent: Instance?, -- Where both pools' voices live and play, workspace.Terrain when nil
+	warnAudioApiLimit: boolean?, -- False silences the warning for an Audio API pool above the engine's soft limit
 }
 
 export type Props = { [any]: any }

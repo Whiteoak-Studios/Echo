@@ -1,7 +1,7 @@
 [package]
 name = "fadeluc-123/echo"
-description = "A reactive sound module, used to minimize the amount of datamodels to be kept track of. Visit Whiteoak Studios for documentation: https://github.com/Whiteoak-Studios/Echo"
-version = "7.8.6"
+description = "Declarative, React-shaped sounds for Roblox, played from pools of voices on the Audio API or the legacy sound system. Docs: https://github.com/Whiteoak-Studios/Echo"
+version = "8.0.0"
 registry = "https://github.com/UpliftGames/wally-index"
 realm = "shared"
 license = "Apache-2.0"
@@ -10,7 +10,7 @@ homepage = "https://github.com/Whiteoak-Studios/Echo"
 repository = "https://github.com/Whiteoak-Studios/Echo"
 
 exclude = ["**"]
-include = ["src", "src/**", "default.project.json", "wally.toml", "README.md", "LICENSE"]
+include = ["src", "src/**", "default.project.json", "wally.toml", "README.md", "CHANGELOG.md", "LICENSE"]
 
 [dependencies]
 Promise = "evaera/promise@^4.0.0"

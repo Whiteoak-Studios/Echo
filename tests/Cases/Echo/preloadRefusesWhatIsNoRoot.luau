@@ -1,8 +1,7 @@
 --[[
-    preload refuses at the call, before any PreloadAsync pass, a priority
-    list holding anything Echo did not make as a root, naming the entry, a
-    root or a string handed where the list belongs, and an id that is no
-    string
+    preload refuses at the call, before it makes any holder, a priority list
+    holding anything Echo did not make as a root, naming the entry, a root
+    or a string handed where the list belongs, and an id that is no string
 --]]
 
 --!strict
@@ -18,6 +17,7 @@ local SIZE: { [string]: number } = { initial = 4, growAt = 2, growBy = 2, ceilin
 return function (): (boolean, string | nil)
 	local env: Environment.Environment = Environment.new()
 	local Echo: any = env.require()
+	local Constants: any = env.require("Constants")
 
 	Echo.configure({ mode = "Legacy", cache = { Legacy = SIZE } })
 
@@ -53,8 +53,12 @@ return function (): (boolean, string | nil)
 		return false, `preload took a number among its ids: {numberedMessage}`
 	end
 
-	if #env.preload.calls ~= 0 then
-		return false, `a refused preload still made {#env.preload.calls} PreloadAsync calls`
+	-- configure made the folder, so a refused preload leaves it holding no AudioPlayer
+	local folder: any = env.game:GetService("SoundService"):FindFirstChild(Constants.FOLDER_NAME)
+	for _, child: any in folder:GetChildren() do
+		if child:IsA("AudioPlayer") then
+			return false, `a refused preload still made a holder for {child.Name}`
+		end
 	end
 
 	return true, nil

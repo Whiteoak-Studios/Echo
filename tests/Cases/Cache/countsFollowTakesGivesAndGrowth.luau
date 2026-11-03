@@ -12,11 +12,13 @@ local LEGACY: string = "Legacy"
 local AUDIO_API: string = "AudioApi"
 local LEGACY_SIZE: { [string]: number } = { initial = 4, growAt = 2, growBy = 3, ceiling = 10 }
 local AUDIO_API_SIZE: { [string]: number } = { initial = 2, growAt = 2, growBy = 1, ceiling = 2 }
+local FRAME: number = 1 / 60
 
 return function (): (boolean, string | nil)
 	local env: Environment.Environment = Environment.new()
 	local Cache: any = env.require("Cache")
 	local terrain: any = env.game.Workspace.Terrain
+	local frames: number = math.ceil(LEGACY_SIZE.growBy / env.require("Constants").GROW_PER_FRAME)
 
 	local function release() end
 	local function reads(mode: string, inUse: number, size: number): boolean
@@ -41,8 +43,9 @@ return function (): (boolean, string | nil)
 		return false, "a take did not count one in use"
 	end
 
-	-- Two left free meets the margin of initial less growAt, so the pool grows
+	-- Two left free meets the margin of initial less growAt, so the pool grows over its step's frames
 	Cache.take(LEGACY, { looped = true, release = release })
+	env.step(FRAME * frames)
 	if not reads(LEGACY, 2, 7) or #terrain:GetChildren() ~= 7 + 2 then
 		return false, "growing did not count its new voices"
 	end

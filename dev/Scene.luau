@@ -1,7 +1,7 @@
 --[[
-    The scene the jobs play into: the bus's SoundGroup and AudioFader wired
-    to an output, a listener at the camera for the bus and one for voices
-    with no bus, the bus's analyzer, the wall, and the props roots follow
+    The scene the jobs play into: the folder both pools' voices live in, the
+    bus's SoundGroup and AudioFader wired to an output, the listeners at the
+    camera, the bus's analyzer, the wall, and the props roots follow
 --]]
 
 --!strict
@@ -15,10 +15,12 @@ local BUS_GROUP: string = Config.bus.interactionGroup
 local BUS_VOLUME: number = Config.bus.volume
 local WALL_SIZE: Vector3 = Config.audible.wall.size
 local PROP_SIZE: Vector3 = Config.propSize
+local VOICES_FOLDER: string = Config.voicesFolder
 local NO_GROUP: string = "" -- The interaction group Echo gives a world voice with no bus
 
 export type Scene = {
 	folder: Folder, -- Under SoundService, holding everything here that has no place in the world
+	voices: Folder, -- Under Workspace, the config's parent, where both pools' voice trees live and play
 	group: SoundGroup,
 	fader: AudioFader,
 	output: AudioDeviceOutput,
@@ -46,6 +48,10 @@ function Scene.build(): Scene
 	local folder: Folder = Instance.new("Folder")
 	folder.Name = "EchoDev"
 	folder.Parent = SoundService
+
+	local voices: Folder = Instance.new("Folder")
+	voices.Name = VOICES_FOLDER
+	voices.Parent = Workspace
 
 	local group: SoundGroup = Instance.new("SoundGroup")
 	group.Name = BUS_NAME
@@ -85,6 +91,7 @@ function Scene.build(): Scene
 
 	return {
 		folder = folder,
+		voices = voices,
 		group = group,
 		fader = fader,
 		output = output,
@@ -120,7 +127,7 @@ function Scene.part(position: Vector3): Part
 end
 
 --[[
-    A Tool held by the character, which a first-person root targets
+    A Tool the character holds while a first-person voice plays from a 2D root
 --]]
 
 function Scene.tool(character: Model): Tool

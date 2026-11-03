@@ -1,7 +1,7 @@
 --[[
     A first or ids that is no table, or holds an entry that is no string,
     errors at the call naming the argument and the entry, before any Promise
-    is made or any PreloadAsync call runs
+    or holder is made
 --]]
 
 --!strict
@@ -28,6 +28,7 @@ local REFUSALS: { Refusal } = {
 
 return function (): (boolean, string | nil)
 	local env: Environment.Environment = Environment.new()
+	local Constants: any = env.require("Constants")
 	local Element: any = env.require("Element")
 	local Preload: any = env.require("Preload")
 
@@ -42,8 +43,8 @@ return function (): (boolean, string | nil)
 		end
 	end
 
-	if #env.preload.calls ~= 0 then
-		return false, `refused runs made {#env.preload.calls} PreloadAsync calls`
+	if env.game:GetService("SoundService"):FindFirstChild(Constants.FOLDER_NAME) then
+		return false, "refused runs made SoundService's Echo folder for a holder"
 	end
 
 	return true, nil

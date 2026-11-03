@@ -11,6 +11,7 @@ local Echo = require(ReplicatedStorage.Packages.Echo)
 local Audible = require(script.Audible)
 local Bench = require(script.Bench)
 local Checks = require(script.Checks)
+local Click = require(script.Click)
 local Config = require(script.Config)
 local Panel = require(script.Panel)
 local Runner = require(script.Runner)
@@ -28,6 +29,7 @@ local PANEL_JOBS: { string } = Config.panel
 
 local scene: Scene.Scene = Scene.build()
 
+-- No warnAudioApiLimit, so the live run reads the Audio API pool's warning in the output at boot
 local configuration: Echo.Config = {
 	mode = MODE,
 	cache = { Legacy = POOL, AudioApi = POOL },
@@ -36,13 +38,14 @@ local configuration: Echo.Config = {
 		[BUS_NAME] = { group = scene.group, fader = scene.fader, interactionGroup = BUS_GROUP },
 		[CURVES_BUS] = { interactionGroup = CURVES_GROUP },
 	},
+	parent = scene.voices,
 }
 
 -- A refused configuration still lets the link job run and report it
 local configured: boolean, refusal: any = pcall(Echo.configure, configuration)
 local configureError: string? = not configured and tostring(refusal) or nil
 
-local runner: Runner.Runner = Runner.new(script, { Checks, Bench, Audible }, {
+local runner: Runner.Runner = Runner.new(script, { Checks, Bench, Audible, Click }, {
 	scene = scene,
 	configureError = configureError,
 	caption = function (text: string)

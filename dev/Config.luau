@@ -8,6 +8,7 @@
 return {
 	mode = "Legacy", -- The default Mode, which a root naming AudioApi overrides
 	pool = { initial = 300, growAt = 290, growBy = 50, ceiling = 400 }, -- Each Mode's pool, the benchmark's size
+	voicesFolder = "EchoDevVoices", -- The Folder under Workspace that both pools' voices live and play in
 
 	-- The one bus: its SoundGroup and AudioFader, and the interaction group its listener at the camera hears
 	bus = { name = "Effects", interactionGroup = "Effects", volume = 1 },
@@ -95,6 +96,12 @@ return {
 		interfaceGap = 0.6,
 	},
 
+	-- The click jobs, each ending at whichever of the two runs out first
+	click = {
+		clicks = 20, -- Clicks a click job measures
+		seconds = 120, -- Seconds a click job takes clicks for
+	},
+
 	-- The panel's buttons, in the order the timing runs go
-	panel = { "b2", "b1", "b3", "b4", "audible", "audibleLegacy" },
+	panel = { "b2", "b1", "b3", "b4", "audible", "audibleLegacy", "click", "clickLegacy" },
 }

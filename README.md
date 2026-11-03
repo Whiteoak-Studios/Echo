@@ -63,7 +63,7 @@ Echo's types are written for luau-lsp's new type checker. luau-lsp's command lin
 
 The first line names the project file the editor builds its sourcemap from. `enableNewSolver` turns the new checker on, `enableByDefault` turns on every boolean Luau flag the way `luau-lsp analyze` does, and `sync: false` stops the extension copying Roblox's live Luau flags, so a change Roblox makes to them never reaches your editor unannounced.
 
-Then require Echo bare, with no annotation, as `local Echo = require(Packages.Echo)` with `Packages` set to `ReplicatedStorage.Packages`, the way every example below does. An annotation on that line would replace the module's own type, and every function's type with it. Bare, every call into Echo is checked: a misspelled handle method, a setter given the wrong type, a Mode outside `"AudioApi"` and `"Legacy"`, a pool size missing a field and `Echo.root` called with a dot are all type errors. The exported types are there by name, such as `Echo.Handle` and `Echo.Element`, and the public functions carry Moonwave doc comments, so the editor shows each one's notes on hover. The types use read-only properties, which the old checker cannot parse, so a game still on the old checker sees errors that Echo's types do not mean.
+Then require Echo bare, with no annotation, as `local Echo = require(Packages.Echo)` with `Packages` set to `ReplicatedStorage.Packages`, the way every example below does. An annotation on that line would replace the module's own type, and every function's type with it. Bare, every call into Echo is checked: a misspelled handle method, a setter given the wrong type, a Mode outside `"AudioApi"` and `"Legacy"`, a pool size missing its `initial` and `Echo.root` called with a dot are all type errors. The exported types are there by name, such as `Echo.Handle` and `Echo.Element`, and the public functions carry Moonwave doc comments, so the editor shows each one's notes on hover. The types use read-only properties, which the old checker cannot parse, so a game still on the old checker sees errors that Echo's types do not mean.
 
 ## A short example
 
@@ -232,13 +232,17 @@ Every block below is a whole file in the game the short example started, and eac
 | Field | Holds |
 |---|---|
 | `mode` | The game's default Mode, `"AudioApi"` or `"Legacy"`. It must be a Mode `cache` sizes. |
-| `cache` | Each Mode's pool size, as `{ [Mode]: { initial, growAt, growBy, ceiling } }`. A Mode left out has no pool, and a root in it errors. |
+| `cache` | Each Mode's pool size, as `{ [Mode]: { initial, growAt?, growBy?, ceiling? } }`. A Mode left out has no pool, and a root in it errors. |
 | `caps` | Optional. Each cap group's name and its limit, a whole number of 1 or more ([Caps and buses](#caps-and-buses)). |
 | `buses` | Optional. Each bus's name and the game's own mixing objects for it ([Caps and buses](#caps-and-buses)). |
+| `parent` | Optional. The instance every voice of both pools lives and plays in, such as a `Workspace.Cache.Sounds` folder. It must be in the `DataModel`. Without it, the voices live under `workspace.Terrain`. |
+| `warnAudioApiLimit` | Optional. `false` silences the boot warning for an Audio API pool that can hold more than 150 voices. |
 
-`configure` fills each pool it names at once. Each of the four sizes is a whole number of 1 or more, `growAt` is at most `initial` and `ceiling` is at least `initial`. A pool starts with `initial` voices and grows by `growBy` each time its free voices fall to `initial - growAt`, never past `ceiling`. With 300, 290, 50 and 400, the pool grows to 350 when 290 voices are in use and to 400 when 340 are. At the ceiling with no free voice, a new play takes that Mode's earliest-started one-shot, which stops at once and fires no `Ended`, and never takes a looping voice. With nothing but looping voices playing at the ceiling, the play starts nothing.
+`configure` fills each pool it names at once. Each size is a whole number of 1 or more. `growAt`, `growBy` and `ceiling` come together or not at all: a pool given some but not all of them errors, naming the first one missing, and a pool given none is fixed at `initial` and never grows. When they are given, `growAt` is at most `initial` and `ceiling` is at least `initial`, and the pool starts with `initial` voices and grows by `growBy` each time its free voices fall to `initial - growAt`, never past `ceiling`. With 300, 290, 50 and 400, the pool grows to 350 when 290 voices are in use and to 400 when 340 are. A growth step adds its voices 5 a frame, so a step of 50 lands over 10 frames, and a play that finds no free voice while the step runs gets one at once. At the ceiling, or at `initial` in a fixed pool, with no free voice, a new play takes that Mode's earliest-started one-shot, which stops at once and fires no `Ended`, and never takes a looping voice. With nothing but looping voices playing there, the play starts nothing.
 
-Each Mode's voice is one tree, cloned from one template, with an `Attachment` under `workspace.Terrain` at its root:
+The Audio API renders only as many voices as its processing budget allows, about 150 to 200 on one fader in Studio, and silences the voices made last. So when the Audio API pool can hold more than 150 voices, its `ceiling` or the `initial` of a fixed pool, `configure` warns once that voices past what the engine renders may stay silent, and builds the pool at the size given. `warnAudioApiLimit = false` silences the warning. The Legacy pool never warns.
+
+Each Mode's voice is one tree, cloned from one template, with an `Attachment` at its root under `config.parent`, or under `workspace.Terrain` when it names none. A voice plays where it sits and never moves to another parent, since an `Attachment` under a folder takes its world position as one under `Terrain` does:
 
 | | Legacy | Audio API |
 |---|---|---|
@@ -819,9 +823,11 @@ return Cues
 
 ### Preload and the two reads
 
-`Echo.preload(priority?, ids?)` returns a Promise. Its one `ContentProvider:PreloadAsync` pass takes the SoundIds of the elements under the `priority` roots first, then every other SoundId Echo has recorded, then `ids`, the takes a game plays only as `SoundId` overrides, with each duplicate dropped. `createElement` records each sound's SoundId as it makes the element, a state's value at that moment for a bound one. An empty SoundId names no asset and never joins the pass, and a destroyed root in `priority` gives none.
+`Echo.preload(priority?, ids?)` returns a Promise. Its pass takes the SoundIds of the elements under the `priority` roots first, then every other SoundId Echo has recorded, then `ids`, the takes a game plays only as `SoundId` overrides, with each duplicate dropped. `createElement` records each sound's SoundId as it makes the element, a state's value at that moment for a bound one. An empty SoundId names no asset and never joins the pass, and a destroyed root in `priority` gives none.
 
-The Promise resolves with the ids that failed to load, an empty list when none did, so one asset that fails never fails or stalls a loading screen. An id the pass never reports a status for counts as failed. With no id to load it resolves an empty list and makes no pass. It rejects only when `PreloadAsync` itself throws. An entry of `priority` that is not a root Echo made, or an entry of `ids` that is not a string, errors at the call. Assets must be authorized for the experience, or they fail at startup.
+Each id gets an idle `AudioPlayer` of its own in `SoundService`'s `Echo` folder, which keeps holding the recording for as long as the client runs, in both Modes. A pooled voice switched to a recording something holds is ready at once, while one switched to a recording nothing holds waits for it to load again, about a quarter of a second in Studio. Every id is set at once, in pass order, and a later pass reuses each id's holder. Holding costs memory: about 0.15 to 0.2 MB for each recording of 1 to 3 seconds, and Echo has no call that lets one go.
+
+The Promise resolves with the ids that failed to load, an empty list when none did, so one asset that fails never fails or stalls a loading screen. An id still not ready after 10 seconds counts as failed, since an id that never loads reports neither ready nor failed. With no id to load it resolves an empty list and makes nothing. It never rejects. An entry of `priority` that is not a root Echo made, or an entry of `ids` that is not a string, errors at the call. Assets must be authorized for the experience, or they fail at startup.
 
 Mount every sound at client boot, behind the loading screen, and let the loading screen wait on this Promise. The boot that ties the walkthrough together, a LocalScript in `StarterPlayerScripts` in place of the short example's:
 
@@ -902,8 +908,9 @@ In the game above, the line counts the footstep element, which sets no SoundId o
 
 - Echo runs on the client only. `configure` errors on the server, and signals never cross the network.
 - `configure` runs once, before the first root, and a root mounted before it errors.
-- A pool never grows past its ceiling. At the ceiling with no free voice, a play takes the earliest-started one-shot of its Mode, which stops at once with no `Ended`, and with nothing but loops playing it starts nothing: `handle:play` returns nil, and `Echo.Action.Play` plays nothing.
-- A pool grows inside the play that brings it to its growth point, cloning up to `growBy` voices on that frame. In Cellar's benchmark one voice tree took 39 to 67 µs to clone, so a growth step of 50 costs about 2 to 3.4 ms.
+- A pool never grows past its ceiling, and a pool given no growth fields never grows. At the ceiling, or at `initial` in a fixed pool, with no free voice, a play takes the earliest-started one-shot of its Mode, which stops at once with no `Ended`, and with nothing but loops playing it starts nothing: `handle:play` returns nil, and `Echo.Action.Play` plays nothing.
+- A pool's growth step clones 5 voices a frame until its `growBy` voices are made. Cloning 50 voice trees on one frame took about 1 ms for Legacy and 3 ms for the Audio API in Studio, so 5 a frame costs about 0.1 and 0.3 ms. A play that finds no free voice while a step runs clones one voice inside that play.
+- An Audio API pool larger than the engine renders, about 150 to 200 voices on one fader in Studio, leaves the engine to silence the voices made last, never Echo's stealing. `configure` warns about it at boot ([Configuration and the Mode](#configuration-and-the-mode)). How many render on a phone is unmeasured.
 - A voice goes back at its natural end, a stop, its cap or the ceiling, and Echo never times a play from `TimeLength`, so a one-shot whose asset never loads and never ends holds its voice until a stop, its cap or the ceiling takes it.
 - A play that starts after its root's target has left the DataModel is heard where its pooled voice was parked. Destroy a root whose target is gone.
 - Never write to `voice.instance`. When a voice goes back, Echo sets back only what it wrote, so a game's own write can carry into that voice's next play, whichever element plays it.
@@ -922,7 +929,7 @@ Every function is called with a dot on the table the require returns, except `Ec
 
 | Member | Returns | What it does |
 |---|---|---|
-| `Echo.configure(config: Config)` | nothing | Takes the configuration once, on the client, before the first root, and fills each pool. Errors on the server, on a second call and on any value it cannot use. |
+| `Echo.configure(config: Config)` | nothing | Takes the configuration once, on the client, before the first root, and fills each pool. Errors on the server, on a second call and on any value it cannot use, and warns once when the Audio API pool can hold more than 150 voices. |
 | `Echo:root(target: Instance \| string \| nil, element: Element, mode: Mode?)` | `Root` | Mounts an element tree, in `mode` or the default Mode. |
 | `Echo.createElement(kind: string \| Component \| typeof(Echo.Fragment), props: Props?, children: { [string]: Element }?)` | `Element` | Makes a sound, an effect, a component's element or a fragment. |
 | `Echo.Fragment` | | The kind of an element that groups a list of components and elements. |
@@ -951,8 +958,8 @@ The exported types, reached as `Echo.Mode`, `Echo.Handle` and so on after the ty
 | Type | Shape |
 |---|---|
 | `Mode` | `"AudioApi" \| "Legacy"` |
-| `Config` | `{ mode: Mode, cache: { [Mode]: CacheSize }, caps: { [string]: number }?, buses: { [string]: Bus }? }` |
-| `CacheSize` | `{ initial: number, growAt: number, growBy: number, ceiling: number }` |
+| `Config` | `{ mode: Mode, cache: { [Mode]: CacheSize }, caps: { [string]: number }?, buses: { [string]: Bus }?, parent: Instance?, warnAudioApiLimit: boolean? }` |
+| `CacheSize` | `{ initial: number, read growAt: number?, read growBy: number?, read ceiling: number? }` |
 | `Bus` | `{ group: SoundGroup?, fader: AudioFader?, interactionGroup: string? }` |
 | `Element` | `{ read kind: string }` |
 | `Props` | `{ [any]: any }` |
