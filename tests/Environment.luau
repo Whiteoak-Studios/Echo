@@ -31,12 +31,13 @@ local LINK: string = `_Index%["([^"]+)"%]%["([^"]+)"%]` -- The folder a Wally li
 type Source = {
 	folder: string,
 	extension: string,
+	hint: string?, -- Added to an error that finds the folder or its init file missing
 }
 
 -- The sources a case names, and the extension each one's files carry
 local SOURCES: { [string]: Source } = {
 	src = { folder = "src", extension = "luau" },
-	legacy = { folder = ".legacy/src", extension = "lua" },
+	legacy = { folder = ".legacy/src", extension = "lua", hint = "; run lune run legacy first" },
 }
 
 -- The packages the package under test finds beside it, as Wally installs them
@@ -221,6 +222,23 @@ local function addModule(state: State, name: string, parent: any, path: string, 
 end
 
 --[[
+    Mounts a folder itself as Rojo maps it: a ModuleScript when it holds an
+    init file, else a Folder
+--]]
+
+local function addFolder(state: State, name: string, parent: any, init: string, relative: string?): any
+	if fs.isFile(init) then
+		return addModule(state, name, parent, init, relative)
+	end
+
+	local folder: any = state.world.new("Folder")
+	folder.Name = name
+	folder.Parent = parent
+
+	return folder
+end
+
+--[[
     Mounts a folder's contents as Rojo maps them: a file is a ModuleScript,
     a folder holding an init file is one too, and any other folder is a
     Folder. A prefix records each module's path for env.require
@@ -235,15 +253,7 @@ local function mount(state: State, parent: any, directory: string, extension: st
 
 		if fs.isDir(path) then
 			local init: string = `{path}/init.{extension}`
-			local child: any
-
-			if fs.isFile(init) then
-				child = addModule(state, name, parent, init, prefix and `{prefix}{name}`)
-			else
-				child = state.world.new("Folder")
-				child.Name = name
-				child.Parent = parent
-			end
+			local child: any = addFolder(state, name, parent, init, prefix and `{prefix}{name}`)
 
 			mount(state, child, path, extension, prefix and `{prefix}{name}/`)
 		else
@@ -259,9 +269,8 @@ local function sourceOf(name: string): Source
 	local known: Source? = SOURCES[name]
 	local source: Source = known or { folder = `{FIXTURES}/{name}`, extension = "luau" }
 
-	if not fs.isFile(`{source.folder}/init.{source.extension}`) then
-		local hint: string = name == "legacy" and "; run lune run legacy first" or ""
-		error(`{source.folder} has no init.{source.extension}{hint}`, 3)
+	if not fs.isDir(source.folder) then
+		error(`{source.folder} does not exist{source.hint or ""}`, 3)
 	end
 
 	return source
@@ -334,7 +343,7 @@ function Environment.new(options: Options?): Environment
 		end
 	end
 
-	local root: any = addModule(state, PACKAGE, packages, `{source.folder}/init.{source.extension}`, "")
+	local root: any = addFolder(state, PACKAGE, packages, `{source.folder}/init.{source.extension}`, "")
 	mount(state, root, source.folder, source.extension, "")
 
 	for _, alias: string in DEPENDENCIES do
@@ -398,7 +407,9 @@ function Environment.new(options: Options?): Environment
 
 		require = function (path: string?): any
 			local module: any? = state.paths[path or ""]
-			if not module then
+			if not module and not path then
+				error(`{source.folder} has no init.{source.extension}{source.hint or ""}`, 2)
+			elseif not module then
 				error(`{source.folder} has no module {path}`, 2)
 			end
 

@@ -123,6 +123,8 @@ export type Backend = {
 	template: () -> Attachment,
 	playable: (tree: Attachment) -> Sound | AudioPlayer,
 	check: (property: string, value: any) -> string?, -- The reason this Mode refuses the property, or nil
+	-- The reason this Mode refuses a property of a child effect of that legacy class, or nil
+	checkEffect: (className: string, property: string, value: any) -> string?,
 	apply: (tree: Attachment, property: string, value: any) -> boolean,
 	effect: (tree: Attachment, className: string, key: string, properties: { [string]: any }) -> (),
 	route: (tree: Attachment, bus: Bus?, world: boolean) -> (),
