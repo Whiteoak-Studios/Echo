@@ -1,7 +1,7 @@
 --[[
-    PreloadAsync records the ids of every call, from strings and from the
-    sounds an instance holds, reports each with the status a case gives it,
-    and throws the error a case sets
+    PreloadAsync records the ids of every call, reports an id passed as a
+    bare string as failed and an instance's ids with the status a case
+    gives each, and throws the error a case sets
 --]]
 
 --!strict
@@ -37,13 +37,14 @@ return function (): (boolean, string | nil)
 		return false, "PreloadAsync did not record the ids of a string, a Sound and a Sound inside a Folder"
 	end
 
-	local success: any = Enum.AssetFetchStatus.Success
+	-- The engine refuses every audio id passed as a bare string
+	local failure: any = Enum.AssetFetchStatus.Failure
 	if
-		reported[FIRST_ID] ~= success
-		or reported[SECOND_ID] ~= Enum.AssetFetchStatus.Failure
-		or reported[THIRD_ID] ~= success
+		reported[FIRST_ID] ~= failure
+		or reported[SECOND_ID] ~= failure
+		or reported[THIRD_ID] ~= Enum.AssetFetchStatus.Success
 	then
-		return false, "the callback did not get each id's status"
+		return false, "the callback did not report the bare id as failed and each instance's id with its status"
 	end
 
 	content:PreloadAsync({ FIRST_ID })

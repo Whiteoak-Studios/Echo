@@ -154,7 +154,11 @@ local Echo = {
 
 --- Takes the game's configuration once, at boot and before the first root:
 --- the default Mode, each Mode's pool size, each cap group's limit and the
---- buses. It errors on the server, on a second call and on any value it
+--- buses. A pool's `growAt`, `growBy` and `ceiling` come together, and one
+--- given only `initial` never grows. The optional `parent` holds every
+--- voice, `workspace.Terrain` when nil. It warns when the Audio API pool can
+--- hold more than 150 voices, unless `warnAudioApiLimit` is false, and builds
+--- it anyway. It errors on the server, on a second call and on any value it
 --- cannot use, naming the field
 --- @function configure
 --- @within Echo
@@ -192,11 +196,13 @@ function Echo.createRef(): Ref<Handle?>
 	return Element.ref(nil :: Handle?)
 end
 
---- Preloads in one `ContentProvider:PreloadAsync` pass the SoundIds of the
---- elements under the `priority` roots first, then every other SoundId Echo
---- has recorded, then `ids`, each once. The Promise resolves with the ids
---- that failed to load, an empty list when none did. A priority entry that
---- is no root, or an id that is no string, errors at the call
+--- Loads the SoundIds of the elements under the `priority` roots first,
+--- then every other SoundId Echo has recorded, then `ids`, each once. Each
+--- id is held on an idle AudioPlayer of its own for as long as the client
+--- runs, every id is set at once, and each is waited on for up to 10
+--- seconds. The Promise resolves with the ids that failed to load, an empty
+--- list when none did, and never rejects. A priority entry that is no root,
+--- or an id that is no string, errors at the call
 --- @function preload
 --- @within Echo
 --- @param priority { Root }? -- The roots whose sounds load first

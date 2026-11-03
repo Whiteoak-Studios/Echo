@@ -64,6 +64,38 @@ local function configured(): Config
 	return config
 end
 
+local function checkSize(mode: string, size: any)
+	for _, field: string in Constants.CACHE_SIZE_FIELDS do
+		local value: any = size[field]
+
+		-- Only initial is required, and a growth field is checked when given
+		if (value ~= nil or field == "initial") and not isCount(value) then
+			error(`Echo: config.cache.{mode}.{field} is a whole number of 1 or more, not {value}`)
+		end
+	end
+
+	local given: boolean = false
+	local missing: string? = nil
+	for _, field: string in Constants.GROWTH_FIELDS do
+		if size[field] ~= nil then
+			given = true
+		elseif not missing then
+			missing = field
+		end
+	end
+
+	-- A pool given none of the growth fields is fixed at its initial
+	if not given then
+		return
+	elseif missing then
+		error(`Echo: config.cache.{mode}.{missing} is missing; growAt, growBy and ceiling come together or not at all`)
+	elseif size.growAt > size.initial then
+		error(`Echo: config.cache.{mode}.growAt is at most its initial, not {size.growAt}`)
+	elseif size.ceiling < size.initial then
+		error(`Echo: config.cache.{mode}.ceiling is at least its initial, not {size.ceiling}`)
+	end
+end
+
 local function checkCache(cache: any)
 	if type(cache) ~= "table" then
 		error(`Echo: config.cache maps each Mode to its pool's size, not {typeof(cache)}`)
@@ -76,17 +108,7 @@ local function checkCache(cache: any)
 			error(`Echo: config.cache.{mode} is a table of the pool's size, not {typeof(size)}`)
 		end
 
-		for _, field: string in Constants.CACHE_SIZE_FIELDS do
-			if not isCount(size[field]) then
-				error(`Echo: config.cache.{mode}.{field} is a whole number of 1 or more, not {size[field]}`)
-			end
-		end
-
-		if size.growAt > size.initial then
-			error(`Echo: config.cache.{mode}.growAt is at most its initial, not {size.growAt}`)
-		elseif size.ceiling < size.initial then
-			error(`Echo: config.cache.{mode}.ceiling is at least its initial, not {size.ceiling}`)
-		end
+		checkSize(mode, size)
 	end
 end
 
@@ -128,10 +150,41 @@ local function checkBuses(buses: any)
 	end
 end
 
+local function checkParent(parent: any)
+	if parent == nil then
+		return
+	elseif typeof(parent) ~= "Instance" then
+		error(`Echo: config.parent is an Instance in the DataModel or nil, not {typeof(parent)}`)
+	end
+
+	local instance = parent :: Instance
+	if not instance:IsDescendantOf(game) then
+		error(`Echo: config.parent is an Instance in the DataModel, and {instance:GetFullName()} is outside it`)
+	end
+end
+
+-- Past what it renders, the engine itself silences the newest Audio API voices, which Echo's stealing never sees
+local function warnAboveLimit(config: Config)
+	local size: CacheSize? = config.cache.AudioApi
+	local voices: number? = size and (size.ceiling or size.initial)
+
+	if not voices or voices <= Constants.AUDIO_API_VOICE_LIMIT or config.warnAudioApiLimit == false then
+		return
+	end
+
+	local pool: string = `config.cache.AudioApi can hold {voices} voices`
+	local above: string = `more than the Audio API's soft limit of {Constants.AUDIO_API_VOICE_LIMIT}`
+	local silent: string = "so voices past what the engine renders may stay silent"
+	local silence: string = "set config.warnAudioApiLimit = false to silence this"
+
+	warn(`Echo: {pool}, {above}, {silent}; {silence}`)
+end
+
 --[[
     Takes the game's configuration once, refusing by name any field it
-    cannot use before it does anything, then sets up each Mode config.cache
-    sizes and fills that Mode's pool
+    cannot use before it does anything, then warns when the Audio API pool
+    is above its soft limit, sets up each Mode config.cache sizes and fills
+    that Mode's pool under config.parent
 --]]
 
 function Root.configure(config: Config)
@@ -143,7 +196,8 @@ function Root.configure(config: Config)
 
 	for field: any in config :: any do
 		if not Constants.CONFIG_FIELDS[field] then
-			error(`Echo: config.{tostring(field)} is no field configure takes; it takes mode, cache, caps and buses`)
+			local fields: string = "mode, cache, caps, buses, parent and warnAudioApiLimit"
+			error(`Echo: config.{tostring(field)} is no field configure takes; it takes {fields}`)
 		end
 	end
 
@@ -154,13 +208,21 @@ function Root.configure(config: Config)
 
 	checkCaps(config.caps)
 	checkBuses(config.buses)
+	checkParent(config.parent)
+
+	local warning: any = config.warnAudioApiLimit
+	if warning ~= nil and type(warning) ~= "boolean" then
+		error(`Echo: config.warnAudioApiLimit is a boolean or nil, not {typeof(warning)}`)
+	end
+
+	warnAboveLimit(config)
 
 	for _, mode: Mode in Constants.MODES do
 		local size: CacheSize? = config.cache[mode]
 		if size then
 			local backend: Backend = BACKENDS[mode]
 			backend.setup()
-			Cache.create(mode, size, backend)
+			Cache.create(mode, size, backend, config.parent)
 		end
 	end
 

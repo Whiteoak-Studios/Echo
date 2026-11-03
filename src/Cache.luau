@@ -1,7 +1,7 @@
 --[[
-    The pools of voices Echo plays from, one Cellar category under Terrain
-    per Mode: taking a voice under its cap, growing and stealing at the
-    ceiling, giving a voice back, and following a voice's target
+    The pools of voices Echo plays from, one Cellar category per Mode under
+    a given parent or Terrain: taking a voice under its cap, growing and
+    stealing at the ceiling, giving a voice back, and following its target
 --]]
 
 --!strict
@@ -23,11 +23,14 @@ type VoiceToken = Types.VoiceToken
 
 type Pool = {
 	category: string,
-	size: CacheSize,
 	backend: Backend,
 	template: Attachment, -- Every voice is cloned from this one tree, so growing makes no template
-	total: number, -- The voices the pool holds, free and out
+	margin: number, -- A growth step starts once a take leaves this many voices free, or fewer
+	growBy: number,
+	ceiling: number, -- The initial of a pool given no growth fields, so it never grows
+	total: number, -- The voices made so far, free and out
 	inUse: number,
+	pending: number, -- The voices the running growth step has still to make, 0 with no step running
 }
 
 local Pools: { [Mode]: Pool } = {}
@@ -37,43 +40,56 @@ local Following: { [VoiceToken]: Instance } = {} -- Each followed voice's target
 
 local takes: number = 0 -- Every take so far, which gives each voice its start order
 local heartbeat: RBXScriptConnection? = nil -- Held only while some voice follows a target
+local growth: RBXScriptConnection? = nil -- Held only while some pool's growth step runs
 
 local Cache = {}
 
-local function checkCount(mode: Mode, field: string, value: number)
+local function checkCount(mode: Mode, field: string, value: number?): number
 	assert(
 		type(value) == "number" and value >= 1 and value % 1 == 0,
 		`Cache.create needs {mode}'s {field} to be a whole number of 1 or more, not {value}`
 	)
+
+	return value
 end
 
 --[[
-    Declares a Mode's pool under Terrain and fills it with its initial
-    voices, all cloned from one template the backend builds
+    Declares a Mode's pool under the given parent, or Terrain when none is
+    given, and fills it with its initial voices, all cloned there from one
+    template the backend builds. A pool given no growth fields is fixed at
+    its initial
 --]]
 
-function Cache.create(mode: Mode, size: CacheSize, backend: Backend)
-	checkCount(mode, "initial", size.initial)
-	checkCount(mode, "growAt", size.growAt)
-	checkCount(mode, "growBy", size.growBy)
-	checkCount(mode, "ceiling", size.ceiling)
+function Cache.create(mode: Mode, size: CacheSize, backend: Backend, parent: Instance?)
+	local initial: number = checkCount(mode, "initial", size.initial)
+	local growAt: number, growBy: number, ceiling: number = 0, 0, initial
 
-	assert(size.growAt <= size.initial, `Cache.create needs {mode}'s growAt to be at most its initial`)
-	assert(size.ceiling >= size.initial, `Cache.create needs {mode}'s ceiling to be at least its initial`)
+	-- The growth fields come together, so once one is given each is checked
+	if size.growAt or size.growBy or size.ceiling then
+		growAt = checkCount(mode, "growAt", size.growAt)
+		growBy = checkCount(mode, "growBy", size.growBy)
+		ceiling = checkCount(mode, "ceiling", size.ceiling)
+
+		assert(growAt <= initial, `Cache.create needs {mode}'s growAt to be at most its initial`)
+		assert(ceiling >= initial, `Cache.create needs {mode}'s ceiling to be at least its initial`)
+	end
 
 	local category: string = Constants.CATEGORIES[mode]
 	local template: Attachment = backend.template()
 
-	Cellar:create(category, Workspace.Terrain)
-	Cellar:add(template, size.initial, nil, category)
+	Cellar:create(category, parent or Workspace.Terrain)
+	Cellar:add(template, initial, nil, category)
 
 	Pools[mode] = {
 		category = category,
-		size = size,
 		backend = backend,
 		template = template,
-		total = size.initial,
+		margin = initial - growAt,
+		growBy = growBy,
+		ceiling = ceiling,
+		total = initial,
 		inUse = 0,
+		pending = 0,
 	}
 end
 
@@ -84,15 +100,37 @@ local function poolOf(mode: Mode): Pool
 	return pool
 end
 
--- Adds a growth step of voices, never past the ceiling
-local function grow(pool: Pool)
-	if pool.total >= pool.size.ceiling then
-		return
-	end
-
-	local count: number = math.min(pool.size.growBy, pool.size.ceiling - pool.total)
+-- Makes some of the running growth step's voices
+local function make(pool: Pool, count: number)
 	Cellar:add(pool.template, count, nil, pool.category)
 	pool.total += count
+	pool.pending -= count
+end
+
+-- Makes a few of each running step's voices a frame, since cloning a whole step on one frame costs milliseconds
+local function grow()
+	local running: boolean = false
+	for _, pool: Pool in Pools do
+		if pool.pending > 0 then
+			make(pool, math.min(Constants.GROW_PER_FRAME, pool.pending))
+			running = running or pool.pending > 0
+		end
+	end
+
+	-- Disconnected on the frame no step remains, and connected again by the next step to start
+	if growth and not running then
+		growth:Disconnect()
+		growth = nil
+	end
+end
+
+-- Starts a growth step of growBy voices, cut so the pool never passes its ceiling
+local function startGrowth(pool: Pool)
+	pool.pending = math.min(pool.growBy, pool.ceiling - pool.total)
+
+	if not growth then
+		growth = RunService.Heartbeat:Connect(grow)
+	end
 end
 
 -- Whiteoak TODO: an O(n) scan of every live voice, both ceilings at most; per-group and per-Mode lists if it shows
@@ -108,9 +146,10 @@ end
 
 --[[
     Takes a voice for one play. A capped group gives back its
-    earliest-started voice first, an empty pool grows up to its ceiling,
-    and at the ceiling the earliest-started one-shot gives up its voice.
-    Nil means the pool is at its ceiling with nothing but loops playing
+    earliest-started voice first, a pool with no free voice below its
+    ceiling makes one at once, and at the ceiling the earliest-started
+    one-shot gives up its voice. Nil means the pool is at its ceiling with
+    nothing but loops playing
 --]]
 
 function Cache.take(mode: Mode, request: TakeRequest): VoiceToken?
@@ -129,10 +168,15 @@ function Cache.take(mode: Mode, request: TakeRequest): VoiceToken?
 		end
 	end
 
-	-- 2) Take a free voice, growing first when none is free
+	-- 2) Take a free voice, or make one at once below the ceiling, so a play never waits on a step's frames
 	local copies: { Instance }? = Cellar:get(nil, pool.category)
-	if not copies then
-		grow(pool)
+	if not copies and pool.total < pool.ceiling then
+		-- The voice counts against the running step, so a step still makes growBy voices in all
+		if pool.pending == 0 then
+			startGrowth(pool)
+		end
+
+		make(pool, 1)
 		copies = Cellar:get(nil, pool.category)
 	end
 
@@ -172,9 +216,9 @@ function Cache.take(mode: Mode, request: TakeRequest): VoiceToken?
 		Groups[group] = (Groups[group] or 0) + 1
 	end
 
-	-- 4) Grow ahead of need once the free voices fall to the pool's margin
-	if pool.total - pool.inUse <= pool.size.initial - pool.size.growAt then
-		grow(pool)
+	-- 4) Grow ahead of need once the free voices fall to the pool's margin, one step at a time
+	if pool.pending == 0 and pool.total < pool.ceiling and pool.total - pool.inUse <= pool.margin then
+		startGrowth(pool)
 	end
 
 	return voice
@@ -272,8 +316,8 @@ function Cache.follow(voice: VoiceToken, target: Instance?)
 end
 
 --[[
-    A Mode's voices in use and its pool's size, from the cache's own
-    counts, so reading them costs nothing on a play
+    A Mode's voices in use and the voices its pool has made so far, from
+    the cache's own counts, so reading them costs nothing on a play
 --]]
 
 function Cache.count(mode: Mode): CacheCount

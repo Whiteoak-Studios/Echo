@@ -11,7 +11,8 @@ local Environment = require("../../Environment")
 local FakeBackend = require("../../Fixtures/FakeBackend")
 
 local MODE: string = "Legacy"
-local SIZE: { [string]: number } = { initial = 8, growAt = 1, growBy = 1, ceiling = 16 }
+-- A fixed pool, so no growth step holds a Heartbeat connection of its own
+local SIZE: { [string]: number } = { initial = 8 }
 local FRAME: number = 1 / 60
 
 return function (): (boolean, string | nil)

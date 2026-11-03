@@ -2,7 +2,7 @@
 
 Every notable change to Echo is recorded here. The format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/), and versions follow [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## 8.0.0 - Unreleased
+## 8.0.0 - 2026-11-03
 
 8.0.0 rewrites Echo whole. It keeps the React shape of 7.8.6, with components, `createElement`, `Fragment`, `root`, `useState`, `useSpring`, refs, events, actions and signals, and plays every sound from pools of voices in either of Roblox's sound systems. Most calls change what they take or return, so a game moves to it by hand.
 
@@ -42,13 +42,13 @@ Every notable change to Echo is recorded here. The format follows [Keep a Change
 
 ### Added
 
-- `Echo.configure(config)`, taking the default Mode, each Mode's pool size, each cap group's limit and the buses.
+- `Echo.configure(config)`, taking the default Mode, each Mode's pool size, each cap group's limit, the buses, and optionally `parent`, the instance every voice lives and plays in (`workspace.Terrain` when it is not given). It warns once at boot when the Audio API pool can hold more than 150 voices, past which the engine may leave the voices made last silent, and `warnAudioApiLimit = false` silences that warning.
 - The Mode: `"Legacy"` plays a voice on a `Sound`, and `"AudioApi"` plays it on an `AudioPlayer` with its own `AudioEmitter` and `Wire`. The same element description plays in both, and a root's third argument overrides the default Mode. Audio API mode rebuilds the emitter's distance curve from the legacy roll-off properties and builds the matching Audio API effect for each legacy effect class.
-- Pools of voices on Cellar, one per Mode, which grow by a set step up to a ceiling. At the ceiling a new play takes the earliest-started one-shot and never a looping voice.
+- Pools of voices on Cellar, one per Mode, which grow by a set step up to a ceiling, adding a step's voices 5 a frame, or stay fixed at their initial size when given no growth fields. At the ceiling a new play takes the earliest-started one-shot and never a looping voice.
 - Handles: `handle:play(overrides?)` returns the voice it started, `handle:stop(voice?, fade?)` stops one voice or all of the element's, fading when given a time, and `handle:get()` and `handle:getAll()` read the live voices. Overrides set any property for one play, a child effect's properties under its key and `at`, a world position.
 - `[Echo.Util.Cap]` and `config.caps`, cap groups that several elements share. A play past a group's limit stops the group's earliest-started voice.
 - `[Echo.Util.Bus]` and `config.buses`, which route an element's voices to the game's own `SoundGroup`, `AudioFader` and `AudioInteractionGroup`.
-- `Echo.preload(priority?, ids?)`, one `ContentProvider:PreloadAsync` pass over every recorded SoundId, the priority roots' first and the given ids last, resolving with the ids that failed.
+- `Echo.preload(priority?, ids?)`, a pass over every recorded SoundId, the priority roots' first and the given ids last, that holds each id on an idle `AudioPlayer` of its own for the rest of the session, so a pooled voice switched to it starts at once, and resolves with the ids not ready after 10 seconds.
 - `Echo.getCache(mode?)`, one pool's voices in use and its size, and `Echo.getAll()`, every mounted element's name, SoundId, volume and root.
 - `root:destroy()`, which stops the root's voices at once, ends its bindings and sets its refs back to nil.
 - The exported types `Mode`, `Config`, `CacheSize`, `Bus`, `Element`, `Props`, `Component`, `State<T>`, `Ref<T>`, `Handle`, `Voice`, `Overrides`, `Root`, `Mounted`, `CacheCount` and `SpringApi`, reached as `Echo.Handle` and so on after the typed install. Each key in `Echo.Event`, `Echo.Action` and `Echo.Util` has a literal type of its own.

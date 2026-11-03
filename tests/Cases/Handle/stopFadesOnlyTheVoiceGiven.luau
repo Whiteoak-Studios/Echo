@@ -9,7 +9,8 @@ local Environment = require("../../Environment")
 
 local ID: string = "rbxassetid://1"
 local MODES: { string } = { "Legacy", "AudioApi" }
-local SIZE: { [string]: number } = { initial = 4, growAt = 2, growBy = 2, ceiling = 8 }
+-- Two plays leave the free voices above the margin, so no growth step holds a Heartbeat connection of its own
+local SIZE: { [string]: number } = { initial = 4, growAt = 4, growBy = 2, ceiling = 8 }
 local VOLUME: number = 0.8
 local FADE: number = 1
 local HALF: number = FADE / 2

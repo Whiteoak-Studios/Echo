@@ -9,6 +9,7 @@ local ContentProvider = game:GetService("ContentProvider")
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local RunService = game:GetService("RunService")
+local SoundService = game:GetService("SoundService")
 local Workspace = game:GetService("Workspace")
 
 local Echo = require(ReplicatedStorage.Packages.Echo)
@@ -124,13 +125,24 @@ local function heardInWorld(instance: Playing): boolean
 	return false
 end
 
-local function attachmentOf(job: Job, instance: Playing): Attachment
+--[[
+    The Attachment a world voice plays under, failing the job unless the
+    voice sits under one and that tree is a child of the scene's voices
+--]]
+
+local function attachmentOf(job: Job, instance: Playing, what: string): Attachment
 	local parent: Instance? = instance.Parent
 	if not parent or not parent:IsA("Attachment") then
 		job:fail(`{instance:GetFullName()} sits under no Attachment, where a world voice plays`)
 	end
 
-	return parent :: Attachment
+	local tree: Attachment = parent :: Attachment
+	local voices: Folder = job.scene.voices
+	local home: Instance? = tree.Parent
+	local where: string = home and home:GetFullName() or "nothing"
+	job:expect(home == voices, `{what}'s tree is a child of {voices:GetFullName()}, reading {where}`)
+
+	return tree
 end
 
 -- An analyzer's mean RmsLevel over the window, once the level has settled
@@ -158,7 +170,8 @@ end
 
 --[[
     1. Echo sits where a game's install puts it, configure ran at boot, and
-    each Mode's pool reads 0 in use of its initial size
+    each Mode's pool reads 0 in use of its initial size, with every voice
+    tree of both pools in the scene's voices and none under Terrain
 --]]
 
 function Checks.link(job: Job): (Verdict, string)
@@ -172,19 +185,49 @@ function Checks.link(job: Job): (Verdict, string)
 
 	job:line("ok: Echo.configure ran at boot")
 
+	local voices: Folder = job.scene.voices
 	for _, mode: Mode in MODES do
 		local count: Echo.CacheCount = Echo.getCache(mode)
 		job:expect(count.inUse == 0 and count.size == POOL_SIZE, `{mode} reads {count.inUse} in use of {count.size}`)
+
+		-- Each of the Mode's voices is a tree in the scene's folder, an Attachment holding its player
+		local className: string = mode == "AudioApi" and "AudioPlayer" or "Sound"
+		local trees: number = 0
+		for _, child: Instance in voices:GetChildren() do
+			if child:IsA("Attachment") and child:FindFirstChildOfClass(className) then
+				trees += 1
+			end
+		end
+
+		job:expect(
+			trees == POOL_SIZE,
+			`{voices:GetFullName()} holds {trees} Attachments holding a {className}, of {POOL_SIZE} {mode} voices`
+		)
 	end
 
-	return "PASS", `Echo is linked and configured, and both Modes read 0 in use of {POOL_SIZE}`
+	-- Terrain is where the voices would live had configure been given no parent
+	local strays: number = 0
+	for _, descendant: Instance in Workspace.Terrain:GetDescendants() do
+		local holdsVoice: boolean = descendant:FindFirstChildOfClass("Sound") ~= nil
+			or descendant:FindFirstChildOfClass("AudioPlayer") ~= nil
+
+		if descendant:IsA("Attachment") and holdsVoice then
+			strays += 1
+		end
+	end
+
+	job:expect(strays == 0, `Workspace.Terrain holds {strays} Attachments holding a Sound or an AudioPlayer`)
+
+	return "PASS", `Echo is linked and configured, and both Modes read 0 in use of {POOL_SIZE} in {voices.Name}`
 end
 
 --[[
     2. One preload with a priority root and the ids played only as
-    overrides: it returns while PreloadAsync loads, resolves with exactly
-    the id that never loads, and the pass takes the priority root's ids
-    first, as each id's first fetch status change shows
+    overrides: it returns at once, resolves with exactly the id that never
+    loads once that id's wait ends, and its holders join Echo's folder the
+    priority root's first. Every other id's holder then reads ready, and in
+    each Mode a priority sound and an override take read ready at the play.
+    Holders last the session, so the job runs before any other preload
 --]]
 
 function Checks.preload(job: Job): (Verdict, string)
@@ -192,24 +235,34 @@ function Checks.preload(job: Job): (Verdict, string)
 	local priority: { string } = table.move(ONE_SHOTS, 1, PRIORITY_COUNT, 1, {})
 	local others: { string } = table.move(ONE_SHOTS, PRIORITY_COUNT + 1, overridesFrom - 1, 1, {})
 	local overrides: { string } = table.move(ONE_SHOTS, overridesFrom, #ONE_SHOTS, 1, {})
+	local take: string = overrides[1] -- Played only as a SoundId override
 	table.insert(overrides, NEVER_LOADS)
 
 	-- The other root's sounds are made first, so only the priority can put its ids ahead in the pass
 	mount(job, nil, sounds(others), DEFAULT_MODE :: Mode)
-	local priorityRoot: Echo.Root = mount(job, nil, sounds(priority), DEFAULT_MODE :: Mode)
 
+	-- The priority tree's first sound hands its handle to the ref, for the plays after the pass
+	local priorityRef: Echo.Ref<Handle?> = Echo.createRef()
+	local priorityTree: Echo.Element = Echo.createElement(Echo.Fragment, {
+		Echo.createElement("Sound", { SoundId = priority[1], Ref = priorityRef }),
+		sounds(table.move(priority, 2, #priority, 1, {})),
+	})
+
+	local priorityRoot: Echo.Root = mount(job, nil, priorityTree, DEFAULT_MODE :: Mode)
+	local priorityHandle: Handle = job:need(priorityRef.current, `{DEFAULT_MODE} priority handle`)
+
+	-- configure made the folder at boot, so every holder the pass makes joins it
+	local folder = job:need(SoundService:FindFirstChild("Echo") :: Folder?, "Echo's folder under SoundService")
+
+	-- Each holder's place in the order the AudioPlayers joined the folder
 	local order: { [string]: number } = {}
-	local changes: number = 0
-	for _, list: { string } in { priority, others, overrides } do
-		for _, id: string in list do
-			job:own(ContentProvider:GetAssetFetchStatusChangedSignal(id):Connect(function ()
-				if not order[id] then
-					changes += 1
-					order[id] = changes
-				end
-			end))
+	local arrivals: number = 0
+	job:own(folder.ChildAdded:Connect(function (child: Instance)
+		if child:IsA("AudioPlayer") and not order[child.Name] then
+			arrivals += 1
+			order[child.Name] = arrivals
 		end
-	end
+	end))
 
 	local started: number = os.clock()
 	local promise: any = Echo.preload({ priorityRoot }, overrides)
@@ -220,11 +273,13 @@ function Checks.preload(job: Job): (Verdict, string)
 
 	local failed: { string } = job:await(promise, PRELOAD_SECONDS, "the preload Promise")
 	local listed: string = table.concat(failed, ", ")
+	job:line(`the Promise settled {Job.fixed(os.clock() - started)} s after the call`)
 	job:expect(#failed == 1 and failed[1] == NEVER_LOADS, `the Promise resolved with the ids that failed: {listed}`)
 
 	local lastPriority: number = 0
 	for _, id: string in priority do
-		lastPriority = math.max(lastPriority, job:need(order[id], `fetch status change for the priority id {id}`))
+		local arrival: number = job:need(order[id], `holder joining Echo's folder for the priority id {id}`)
+		lastPriority = math.max(lastPriority, arrival)
 	end
 
 	local firstOther: number = math.huge
@@ -236,17 +291,55 @@ function Checks.preload(job: Job): (Verdict, string)
 
 	job:expect(
 		lastPriority < firstOther,
-		`the priority ids changed status by change {lastPriority}, the rest from {firstOther}`
+		`the priority holders joined the folder by arrival {lastPriority}, the rest from {firstOther}`
 	)
 
-	return "PASS", "preload returned while loading, failed only the id that never loads, and took the priority first"
+	-- Each id that loads stays held, ready, after the pass
+	local unready: { string } = {}
+	for _, list: { string } in { priority, others, overrides } do
+		for _, id: string in list do
+			if id ~= NEVER_LOADS then
+				local holder = job:need(folder:FindFirstChild(id) :: AudioPlayer?, `holder for {id} in Echo's folder`)
+				if not holder.IsReady then
+					table.insert(unready, id)
+				end
+			end
+		end
+	end
+
+	local notReady: string = #unready == 0 and "none" or table.concat(unready, ", ")
+	job:expect(#unready == 0, `every holder but the one that never loads reads IsReady; not ready: {notReady}`)
+
+	-- A voice switched to a held id reads ready at the play, which is what holding is for
+	for _, mode: Mode in MODES do
+		local handle: Handle = priorityHandle
+		if mode ~= DEFAULT_MODE then
+			mount(job, nil, priorityTree, mode)
+			handle = job:need(priorityRef.current, `{mode} priority handle`)
+		end
+
+		local voice: Voice, instance: Playing = job:play(handle, nil, `the {mode} priority sound`)
+		local ready: boolean = Job.loaded(instance)
+		handle:stop(voice)
+		job:expect(ready, `the {mode} priority sound's {instance.ClassName} read ready at the play`)
+
+		local taken: Voice, takenInstance: Playing = job:play(handle, { SoundId = take }, `the {mode} override take`)
+		local takeReady: boolean = Job.loaded(takenInstance)
+		handle:stop(taken)
+		job:expect(takeReady, `the {mode} override take's {takenInstance.ClassName} read ready at the play`)
+	end
+
+	local failedOnly: string = "failed only the id that never loads"
+	local held: string = "held the priority first and every other id ready"
+	return "PASS", `preload returned at once, {failedOnly}, {held}, and both Modes played held ids ready`
 end
 
 --[[
     3. One description plays in both Modes: a 2D one-shot, a world one-shot
-    at a point ahead of the camera and a loop. Each instance plays, a
-    one-shot's Ended runs once with its voice back, and a loop's Looped
-    runs before handle:stop ends it
+    at a point ahead of the camera and a loop. Each instance plays, the
+    world one-shot's tree in the scene's voices, a one-shot's Ended runs
+    once with its voice back, and a loop's Looped runs before handle:stop
+    ends it
 --]]
 
 function Checks.playback(job: Job): (Verdict, string)
@@ -293,7 +386,7 @@ function Checks.playback(job: Job): (Verdict, string)
 			job:expect(heardInWorld(instance) == (at ~= nil), `{what} is heard in the world: {at ~= nil}`)
 
 			if at then
-				local position: Vector3 = attachmentOf(job, instance).WorldPosition
+				local position: Vector3 = attachmentOf(job, instance, what).WorldPosition
 				job:expect((position - at).Magnitude <= TOLERANCE, `{what} sits at its point, {DISTANCE} studs out`)
 			end
 
@@ -458,8 +551,9 @@ function Checks.loaded(job: Job): (Verdict, string)
 end
 
 --[[
-    6. A root on a Part plays a one-shot, the Part is destroyed mid-play,
-    and the voice plays on to its natural end at the Part's last position
+    6. A root on a Part plays a one-shot from a tree in the scene's voices,
+    the Part is destroyed mid-play, and the voice plays on to its natural
+    end at the Part's last position
 --]]
 
 function Checks.outlives(job: Job): (Verdict, string)
@@ -478,7 +572,7 @@ function Checks.outlives(job: Job): (Verdict, string)
 		local root: Echo.Root = mount(job, part, element, mode)
 		local handle: Handle = job:need(ref.current, `{mode} handle`)
 		local voice: Voice, instance: Playing = job:play(handle, nil, `the {mode} voice on the Part`)
-		local attachment: Attachment = attachmentOf(job, instance)
+		local attachment: Attachment = attachmentOf(job, instance, `the {mode} voice on the Part`)
 
 		job:wait(function (): boolean
 			return instance.TimePosition >= CUT
@@ -512,8 +606,8 @@ function Checks.outlives(job: Job): (Verdict, string)
 end
 
 --[[
-    7. A first-person one-shot plays from a 2D root on a Tool the character
-    holds, and plays on to its end once the Tool is destroyed
+    7. A first-person one-shot plays from a 2D root while the character holds a
+    Tool, and plays on to its end once the Tool is destroyed
 --]]
 
 function Checks.unequip(job: Job): (Verdict, string)
@@ -534,7 +628,7 @@ function Checks.unequip(job: Job): (Verdict, string)
 
 	for _, mode: Mode in MODES do
 		local tool: Tool = job:own(Scene.tool(character))
-		local root: Echo.Root = mount(job, tool, element, mode)
+		local root: Echo.Root = mount(job, nil, element, mode)
 		local handle: Handle = job:need(ref.current, `{mode} handle`)
 		local voice: Voice, instance: Playing = job:play(handle, nil, `the {mode} first-person one-shot`)
 

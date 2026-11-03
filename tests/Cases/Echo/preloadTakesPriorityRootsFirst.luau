@@ -1,12 +1,10 @@
 --[[
-    preload hands its one PreloadAsync pass the SoundIds of the priority
-    roots first, in the list's order, then every other recorded id, then the
-    ids it is given, each once, and resolves with the ids that failed
+    preload holds the SoundIds of the priority roots first, in the list's
+    order, then every other recorded id, then the ids it is given, each
+    once, and resolves with the ids whose holder never turned ready
 --]]
 
 --!strict
-local roblox: any = require("@lune/roblox")
-
 local Environment = require("../../Environment")
 
 local RECORDED: string = "rbxassetid://1"
@@ -20,7 +18,7 @@ local SIZE: { [string]: number } = { initial = 4, growAt = 2, growBy = 2, ceilin
 return function (): (boolean, string | nil)
 	local env: Environment.Environment = Environment.new()
 	local Echo: any = env.require()
-	local Enum: any = roblox.Enum
+	local Constants: any = env.require("Constants")
 
 	Echo.configure({ mode = "Legacy", cache = { Legacy = SIZE } })
 
@@ -36,29 +34,41 @@ return function (): (boolean, string | nil)
 		})
 	)
 
-	env.preload.statuses[RELOAD] = Enum.AssetFetchStatus.Failure
-
 	local failed: { string }? = nil
 	local promise: any = Echo.preload({ weapons, menu }, { TAKE, GUN }):andThen(function (ids: { string })
 		failed = ids
 	end)
 
-	if #env.preload.calls ~= 1 then
-		return false, `preload made {#env.preload.calls} PreloadAsync calls, not 1`
-	end
-
-	local call: { string } = env.preload.calls[1]
-	local expected: { string } = { GUN, RELOAD, MENU, RECORDED, TAKE }
-	if #call ~= #expected then
-		return false, `the pass took {#call} ids, not {#expected}: {table.concat(call, ", ")}`
-	end
-
-	for index: number, id: string in expected do
-		if call[index] ~= id then
-			return false, `the pass took {call[index]} at {index}, not {id}: {table.concat(call, ", ")}`
+	-- The folder holds the holders beside whatever configure put there
+	local folder: any = env.game:GetService("SoundService"):FindFirstChild(Constants.FOLDER_NAME)
+	local holders: { any } = {}
+	local held: { string } = {}
+	for _, child: any in folder:GetChildren() do
+		if child:IsA("AudioPlayer") then
+			table.insert(holders, child)
+			table.insert(held, child.Name)
 		end
 	end
 
+	local expected: { string } = { GUN, RELOAD, MENU, RECORDED, TAKE }
+	if #held ~= #expected then
+		return false, `the pass held {#held} ids, not {#expected}: {table.concat(held, ", ")}`
+	end
+
+	for index: number, id: string in expected do
+		if held[index] ~= id then
+			return false, `the pass held {held[index]} at {index}, not {id}: {table.concat(held, ", ")}`
+		end
+	end
+
+	-- Every holder but RELOAD's turns ready, so RELOAD fails once its wait ends
+	for _, holder: any in holders do
+		if holder.Name ~= RELOAD then
+			env.load(holder)
+		end
+	end
+
+	env.step(Constants.PRELOAD_WAIT)
 	if promise:getStatus() ~= "Resolved" or not failed or #failed ~= 1 or failed[1] ~= RELOAD then
 		local got: string = failed and table.concat(failed, ", ") or "nothing"
 		return false, `preload's Promise was {promise:getStatus()} with {got}, where it resolves with {RELOAD}`

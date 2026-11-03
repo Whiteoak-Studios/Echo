@@ -1,6 +1,7 @@
 --[[
-    The cache's in-use count and pool size read back right after each play,
-    each give-back and each growth step the plays bring on
+    The cache's in-use count and pool size read back after each play, once
+    the frames of the growth step it brings on have passed, and after each
+    give-back
 --]]
 
 --!strict
@@ -8,6 +9,7 @@ local Environment = require("../../Environment")
 
 local ID: string = "rbxassetid://1"
 local SIZE: { [string]: number } = { initial = 4, growAt = 2, growBy = 2, ceiling = 8 }
+local FRAME: number = 1 / 60
 
 type Count = { inUse: number, size: number }
 
@@ -16,6 +18,7 @@ return function (): (boolean, string | nil)
 	local Root: any = env.require("Root")
 	local Element: any = env.require("Element")
 	local Cache: any = env.require("Cache")
+	local frames: number = math.ceil(SIZE.growBy / env.require("Constants").GROW_PER_FRAME)
 
 	Root.configure({ mode = "Legacy", cache = { Legacy = SIZE } })
 
@@ -39,8 +42,9 @@ return function (): (boolean, string | nil)
 
 	for play: number, size: number in sizes do
 		table.insert(voices, handle:play())
+		env.step(FRAME * frames)
 
-		local passed: boolean, reason: string? = expect(play, size, `after play {play}`)
+		local passed: boolean, reason: string? = expect(play, size, `after play {play} and {frames} frames`)
 		if not passed then
 			return false, reason
 		end

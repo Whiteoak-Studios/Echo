@@ -1,6 +1,6 @@
 --[[
     A run with no id to load, or only empty ones, resolves an empty list at
-    once and makes no PreloadAsync call
+    once and makes no holder, nor the Echo folder one would sit in
 --]]
 
 --!strict
@@ -22,6 +22,7 @@ local RUNS: { Run } = {
 
 return function (): (boolean, string | nil)
 	local env: Environment.Environment = Environment.new()
+	local Constants: any = env.require("Constants")
 	local Element: any = env.require("Element")
 	local Preload: any = env.require("Preload")
 
@@ -40,8 +41,8 @@ return function (): (boolean, string | nil)
 		end
 	end
 
-	if #env.preload.calls ~= 0 then
-		return false, `runs with no id to load made {#env.preload.calls} PreloadAsync calls`
+	if env.game:GetService("SoundService"):FindFirstChild(Constants.FOLDER_NAME) then
+		return false, "runs with no id to load made SoundService's Echo folder"
 	end
 
 	return true, nil
