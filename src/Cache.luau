@@ -79,7 +79,7 @@ end
 
 local function poolOf(mode: Mode): Pool
 	local pool: Pool? = Pools[mode]
-	assert(pool, `The cache has no pool for {mode}; Cache.create makes one`)
+	assert(pool, `Echo: config.cache gives {mode} no pool; it sizes one pool for each Mode the game plays`)
 
 	return pool
 end

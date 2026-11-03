@@ -22,9 +22,9 @@ jobs:
       - name: Format
         run: lune run format && git diff --exit-code
       - name: Lint
-        run: selene src
+        run: selene src dev
       - name: Analyze
-        run: luau-lsp analyze --platform=roblox --flag:LuauSolverV2=true --sourcemap=sourcemap.json --definitions=globalTypes.d.luau --ignore="Packages/**" --formatter=gnu src
+        run: luau-lsp analyze --platform=roblox --flag:LuauSolverV2=true --sourcemap=sourcemap.json --definitions=globalTypes.d.luau --ignore="Packages/**" --formatter=gnu src dev
       - name: Tests
         run: lune run tests
 

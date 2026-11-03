@@ -9,6 +9,13 @@
 				"$path": "Packages",
 				"Echo": { "$path": "src" }
 			}
+		},
+		"StarterPlayer": {
+			"$className": "StarterPlayer",
+			"StarterPlayerScripts": {
+				"$className": "StarterPlayerScripts",
+				"EchoDev": { "$path": "dev" }
+			}
 		}
 	}
 }
